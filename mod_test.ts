@@ -10,6 +10,7 @@ import {
   getOrderBtcSize,
   getIndexPrice,
   getCandle,
+  getProfit,
   getTrend,
   getPosition,
   getPredictedFundingRate,
@@ -81,6 +82,18 @@ Deno.test("getPosition", async () => {
   console.log({ pos });
 });
 
+Deno.test("getProfitBuy", () => {
+  const profit = getProfit("Buy", 5900, 5000);
+  console.log({ profit });
+  assertEquals(profit, 900);
+});
+
+Deno.test("getProfitSell", () => {
+  const profit = getProfit("Sell", 5000, 5900);
+  console.log({ profit });
+  assertEquals(profit, 900);
+});
+
 Deno.test("getPredictedFundingRate", async () => {
   const fund = await getPredictedFundingRate(exc, SYMBOL);
   console.log({ fund });
@@ -99,15 +112,29 @@ Deno.test("getCandle15Max", async () => {
   assertEquals(candle.high.length, PER_PAGE);
   assertEquals(candle.low.length, PER_PAGE);
 });
-Deno.test("getCandle30_5", async () => {
-  const interval = 30;
-  const from = Math.floor(new Date().getTime() / 1000) - interval * 60 * 5;
+Deno.test("getCandle5_10", async () => {
+  const interval = 5;
+  const perPage = 10;
+  const from =
+    Math.floor(new Date().getTime() / 1000) - interval * 60 * perPage;
   const candle = await getCandle({ exc, interval: interval.toString(), from });
   console.log({ candle });
-  assertEquals(candle.open.length, 5);
-  assertEquals(candle.close.length, 5);
-  assertEquals(candle.high.length, 5);
-  assertEquals(candle.low.length, 5);
+  assertEquals(candle.open.length, perPage);
+  assertEquals(candle.close.length, perPage);
+  assertEquals(candle.high.length, perPage);
+  assertEquals(candle.low.length, perPage);
+});
+Deno.test("getCandle30_5", async () => {
+  const interval = 30;
+  const perPage = 5;
+  const from =
+    Math.floor(new Date().getTime() / 1000) - interval * 60 * perPage;
+  const candle = await getCandle({ exc, interval: interval.toString(), from });
+  console.log({ candle });
+  assertEquals(candle.open.length, perPage);
+  assertEquals(candle.close.length, perPage);
+  assertEquals(candle.high.length, perPage);
+  assertEquals(candle.low.length, perPage);
 });
 
 Deno.test("getTrend", async () => {

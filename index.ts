@@ -7,6 +7,9 @@ import {
   getTrend,
   logBalanceInterval,
   postSlack,
+  getStopLoss,
+  getTakeProfit,
+  getProfit,
   setTralingStop,
   getOrderBtcSize,
 } from "./mod.ts";
@@ -20,7 +23,7 @@ const LEVERAGE = 1.5;
 const TRAILING_STOP = 50;
 const TAKE_PROFIT = TRAILING_STOP * 2.0;
 const STOP_LOSS = TRAILING_STOP * 4;
-const INTERVAL = 1;
+const INTERVAL = 5;
 const PER_PAGE = 199;
 
 const ccxtApiKey = Deno.env.get("CCXT_API_KEY");
@@ -41,37 +44,6 @@ logBalanceInterval(exc, FETCH_BALANCE_INTERVAL);
 
 const main = async (exc: ccxt.Exchange) => {
   try {
-    const pos = await getPosition(exc);
-    if (pos.side !== "None") {
-      const idxPrice = await getIndexPrice(exc);
-      const stop_loss =
-        pos.side === "Buy"
-          ? Math.round(Number(pos.entry_price) - STOP_LOSS)
-          : Math.round(Number(pos.entry_price) + STOP_LOSS);
-      const profit =
-        pos.side === "Buy"
-          ? idxPrice - Number(pos.entry_price)
-          : Number(pos.entry_price) - idxPrice;
-      if (profit > TAKE_PROFIT) {
-        const res = await setTralingStop({
-          exc,
-          pos,
-          stop_loss: stop_loss.toString(),
-          trailing_stop: TRAILING_STOP.toString(),
-        });
-        // console.log({ res });
-      } else {
-        const res = await setTralingStop({
-          exc,
-          pos,
-          stop_loss: stop_loss.toString(),
-          trailing_stop: pos.trailing_stop,
-        });
-        // console.log({ res });
-      }
-      return;
-    }
-
     const from =
       Math.floor(new Date().getTime() / 1000) - INTERVAL * 60 * PER_PAGE;
     const candle = await getCandle({
@@ -80,32 +52,69 @@ const main = async (exc: ccxt.Exchange) => {
       from,
     });
     const trend = getTrend(candle);
+    console.log({ trend });
+
+    const pos = await getPosition(exc);
+    if (pos.side !== "None") {
+      const idxPrice = await getIndexPrice(exc);
+      const take_profit = getTakeProfit(pos.side, pos.entry_price, TAKE_PROFIT);
+      const stop_loss = getStopLoss(pos.side, pos.entry_price, STOP_LOSS);
+      const profit = getProfit(pos.side, idxPrice, pos.entry_price);
+      if (profit > TAKE_PROFIT) {
+        const res = await setTralingStop({
+          exc,
+          pos,
+          take_profit,
+          stop_loss,
+          trailing_stop: TRAILING_STOP,
+        });
+        // console.log({ res });
+      } else {
+        const res = await setTralingStop({
+          exc,
+          pos,
+          take_profit,
+          stop_loss,
+          trailing_stop: pos.trailing_stop,
+        });
+        // console.log({ res });
+      }
+      return;
+    }
 
     if (trend === "Bullish") {
       console.log(`trend: Bullish !`);
       const price = await getIndexPrice(exc);
+      const take_profit = getTakeProfit("Buy", price, TAKE_PROFIT);
+      const stop_loss = getStopLoss("Buy", price, STOP_LOSS);
       const size = await getOrderBtcSize(exc, LEVERAGE);
-      const res = await createOrder(exc, {
+      const _res = await createOrder(exc, {
         symbol: SYMBOL,
         side: "Buy",
         order_type: "Limit",
         qty: size,
         price,
         time_in_force: "ImmediateOrCancel",
+        take_profit,
+        stop_loss,
       });
     }
 
     if (trend === "Bearlish") {
       console.log(`trend: Bearlish !`);
       const price = await getIndexPrice(exc);
+      const take_profit = getTakeProfit("Sell", price, TAKE_PROFIT);
+      const stop_loss = getStopLoss("Sell", price, STOP_LOSS);
       const size = await getOrderBtcSize(exc, LEVERAGE);
-      const res = await createOrder(exc, {
+      const _res = await createOrder(exc, {
         symbol: SYMBOL,
         side: "Sell",
         order_type: "Limit",
         qty: size,
         price,
         time_in_force: "ImmediateOrCancel",
+        take_profit,
+        stop_loss,
       });
     }
   } catch (e) {

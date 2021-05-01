@@ -2,6 +2,7 @@ import * as ccxt from "https://esm.sh/ccxt";
 import * as log from "https://deno.land/std/log/mod.ts";
 import * as tech from "https://esm.sh/technicalindicators";
 import StockData from "https://esm.sh/technicalindicators/declarations/StockData.d.ts";
+import { delay } from "https://deno.land/std/async/mod.ts";
 import {
   WebClient,
   WebAPICallResult,
@@ -11,10 +12,11 @@ const SYMBOL = "BTCUSD";
 const CHANNEL = "#bybit-test";
 
 export type Trend = "Bullish" | "Bearlish" | "None";
+export type Side = "Buy" | "Sell" | "None";
 
 export type Position = {
   symbol: string;
-  side: string;
+  side: Side;
   size: number;
   entry_price: string;
   liq_price: string;
@@ -122,16 +124,20 @@ export const getPosition = async (exc: ccxt.Exchange): Promise<Position> => {
 export const setTralingStop = async ({
   exc,
   pos,
+  take_profit,
   stop_loss,
   trailing_stop,
 }: {
   exc: ccxt.Exchange;
   pos: Position;
-  stop_loss: string;
-  trailing_stop: string;
+  take_profit: number | string;
+  stop_loss: number | string;
+  trailing_stop: number | string;
 }): Promise<any> => {
   if (
-    (pos.stop_loss === stop_loss && pos.trailing_stop === trailing_stop) ||
+    (Number(pos.take_profit) === Number(take_profit) &&
+      Number(pos.stop_loss) === Number(stop_loss) &&
+      Number(pos.trailing_stop) === Number(trailing_stop)) ||
     Number(pos.trailing_stop) !== 0
   ) {
     return;
@@ -141,8 +147,9 @@ export const setTralingStop = async ({
     `Set trailing stop: ${JSON.stringify(
       {
         symbol: SYMBOL,
+        take_profit,
         stop_loss,
-        trailing_stop,
+        trailing_stop: Number(trailing_stop),
       },
       null,
       2
@@ -150,8 +157,9 @@ export const setTralingStop = async ({
   );
   const res = await exc.v2PrivatePostPositionTradingStop({
     symbol: SYMBOL,
-    stop_loss,
-    trailing_stop,
+    take_profit: Number(take_profit),
+    stop_loss: Number(stop_loss),
+    trailing_stop: Number(trailing_stop),
   });
   log.debug({ res });
   return res;
@@ -213,6 +221,42 @@ export const getTrend = (candle: StockData): Trend => {
   }
 };
 
+export const getStopLoss = (
+  side: Side,
+  entryPrice: number | string,
+  loss: number | string
+): number => {
+  const stopLoss =
+    side === "Buy"
+      ? Math.round(Number(entryPrice) - Number(loss))
+      : Math.round(Number(entryPrice) + Number(loss));
+  return stopLoss;
+};
+
+export const getTakeProfit = (
+  side: Side,
+  entryPrice: number | string,
+  profit: number | string
+): number => {
+  const takeProfit =
+    side === "Buy"
+      ? Math.round(Number(entryPrice) + Number(profit))
+      : Math.round(Number(entryPrice) - Number(profit));
+  return takeProfit;
+};
+
+export const getProfit = (
+  side: Side,
+  idxPrice: number | string,
+  entryPrice: number | string
+): number => {
+  const profit =
+    side === "Buy"
+      ? Math.round(Number(idxPrice) - Number(entryPrice))
+      : Math.round(Number(entryPrice) - Number(idxPrice));
+  return profit;
+};
+
 export const createOrder = async (
   exc: ccxt.Exchange,
   {
@@ -220,15 +264,19 @@ export const createOrder = async (
     side,
     order_type,
     qty,
-    time_in_force,
     price,
+    time_in_force,
+    take_profit,
+    stop_loss,
   }: {
     symbol: string;
     side: string;
     order_type: string;
     qty: number;
-    time_in_force: string;
     price?: number;
+    time_in_force: string;
+    take_profit: number;
+    stop_loss: number;
   }
 ): Promise<any> => {
   await postSlack(
@@ -239,31 +287,38 @@ export const createOrder = async (
         side,
         order_type,
         qty,
-        time_in_force,
         price,
+        time_in_force,
+        take_profit: Math.round(take_profit),
+        stop_loss: Math.round(stop_loss),
       },
       null,
       2
     )}`
   );
-  if (price) {
-    const result = await exc.v2PrivatePostOrderCreate({
+  let result;
+  if (price === undefined) {
+    result = await exc.v2PrivatePostOrderCreate({
       symbol,
       side,
       order_type,
       qty,
       time_in_force,
+      take_profit,
+      stop_loss,
     });
-    return result;
   } else {
-    const result = await exc.v2PrivatePostOrderCreate({
+    result = await exc.v2PrivatePostOrderCreate({
       symbol,
       side,
       order_type,
       qty,
+      price: Math.round(price),
       time_in_force,
-      price,
+      take_profit: Math.round(take_profit),
+      stop_loss: Math.round(stop_loss),
     });
-    return result;
   }
+  delay(5000);
+  return result;
 };
