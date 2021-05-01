@@ -76,6 +76,28 @@ export const getIndexPrice = async (exc: ccxt.Exchange): Promise<number> => {
   return Number(tickers.result[0].index_price);
 };
 
+export const getBestBid = async (exc: ccxt.Exchange): Promise<number> => {
+  const orderBook = await exc.v2PublicGetOrderBookL2({ symbol: SYMBOL });
+  const p = orderBook.result
+    .filter((x: { symbol: string }) => x.symbol === SYMBOL)
+    .filter((x: { side: Side }) => x.side === "Buy")
+    .map((x: { price: string }) => Number(x.price))
+    .sort();
+  log.debug({ p });
+  return p[p.length - 1];
+};
+
+export const getBestAsk = async (exc: ccxt.Exchange): Promise<number> => {
+  const orderBook = await exc.v2PublicGetOrderBookL2({ symbol: SYMBOL });
+  const p = orderBook.result
+    .filter((x: { symbol: string }) => x.symbol === SYMBOL)
+    .filter((x: { side: Side }) => x.side === "Sell")
+    .map((x: { price: string }) => Number(x.price))
+    .sort();
+  log.debug({ p });
+  return p[0];
+};
+
 export const getWallet = async (
   exc: ccxt.Exchange,
   coin: string

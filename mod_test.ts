@@ -11,6 +11,8 @@ import {
   getIndexPrice,
   getCandle,
   getProfit,
+  getBestBid,
+  getBestAsk,
   getTrend,
   getPosition,
   getPredictedFundingRate,
@@ -135,6 +137,17 @@ Deno.test("getCandle30_5", async () => {
   assertEquals(candle.close.length, perPage);
   assertEquals(candle.high.length, perPage);
   assertEquals(candle.low.length, perPage);
+});
+
+Deno.test("getBestBid", async () => {
+  const p = await getBestBid(exc);
+  console.log({ p });
+  assert(typeof p === "number");
+});
+Deno.test("getBestAsk", async () => {
+  const p = await getBestAsk(exc);
+  console.log({ p });
+  assert(typeof p === "number");
 });
 
 Deno.test("getTrend", async () => {

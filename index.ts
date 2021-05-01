@@ -9,6 +9,8 @@ import {
   postSlack,
   getStopLoss,
   getTakeProfit,
+  getBestBid,
+  getBestAsk,
   getProfit,
   setTralingStop,
   getOrderBtcSize,
@@ -84,7 +86,7 @@ const main = async (exc: ccxt.Exchange) => {
 
     if (trend === "Bullish") {
       console.log(`trend: Bullish !`);
-      const price = await getIndexPrice(exc);
+      const price = await getBestAsk(exc);
       const take_profit = getTakeProfit("Buy", price, TAKE_PROFIT);
       const stop_loss = getStopLoss("Buy", price, STOP_LOSS);
       const size = await getOrderBtcSize(exc, LEVERAGE);
@@ -102,7 +104,7 @@ const main = async (exc: ccxt.Exchange) => {
 
     if (trend === "Bearlish") {
       console.log(`trend: Bearlish !`);
-      const price = await getIndexPrice(exc);
+      const price = await getBestBid(exc);
       const take_profit = getTakeProfit("Sell", price, TAKE_PROFIT);
       const stop_loss = getStopLoss("Sell", price, STOP_LOSS);
       const size = await getOrderBtcSize(exc, LEVERAGE);
