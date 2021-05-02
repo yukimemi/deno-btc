@@ -22,7 +22,6 @@ const exc: Exchange = new Bybit(apiKey, secret, testnet);
 
 const main = async (exc: Exchange) => {
   await exc.loadMarkets();
-
   exc.logBalanceInterval("BTC", FETCH_BALANCE_INTERVAL);
 };
 

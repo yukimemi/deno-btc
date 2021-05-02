@@ -1,14 +1,25 @@
 import * as ccxt from "https://esm.sh/ccxt";
 import * as log from "https://deno.land/std/log/mod.ts";
-import * as tech from "https://esm.sh/technicalindicators";
-import StockData from "https://esm.sh/technicalindicators/declarations/StockData.d.ts";
+// import * as talib from "https://esm.sh/talib.js";
 import { delay } from "https://deno.land/std/async/mod.ts";
+
+export type Trend = "Bullish" | "Bearlish" | "None";
 
 export class Exchange {
   BTC = "BTC/USD";
   XRP = "XRP/USD";
 
+  // ta = talib;
+
   public ec!: ccxt.Exchange;
+  public trend!: Trend;
+  public ohlcv!: {
+    open: number[];
+    high: number[];
+    low: number[];
+    close: number[];
+    value: number[];
+  };
 
   constructor(apiKey: string, secret: string) {}
 
@@ -82,7 +93,23 @@ export class Exchange {
     params?: ccxt.Params
   ): Promise<ccxt.OHLCV[]> {
     if (this.ec.hasFetchOHLCV) {
-      return await this.ec.fetchOHLCV(symbol, timeframe, since, limit, params);
+      const ohlcv = await this.ec.fetchOHLCV(
+        symbol,
+        timeframe,
+        since,
+        limit,
+        params
+      );
+
+      this.ohlcv = {
+        open: ohlcv.map((x) => x[1]),
+        high: ohlcv.map((x) => x[2]),
+        low: ohlcv.map((x) => x[3]),
+        close: ohlcv.map((x) => x[4]),
+        value: ohlcv.map((x) => x[5]),
+      };
+
+      return ohlcv;
     }
 
     return await this._fetchOHLCV(symbol, timeframe, since, limit, params);
