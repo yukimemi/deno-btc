@@ -1,12 +1,17 @@
-import { assert, assertEquals } from "https://deno.land/std/testing/asserts.ts";
-import { Exchange } from "./exchange.ts";
+import * as log from "https://deno.land/std/log/mod.ts";
 import { Bybit } from "./bybit.ts";
+import { Exchange } from "./exchange.ts";
+import { assert, assertEquals } from "https://deno.land/std/testing/asserts.ts";
+import { delay } from "https://deno.land/std/async/mod.ts";
 
 const PER_PAGE = 199;
 
 const apiKey = Deno.env.get("CCXT_API_KEY") ?? "";
 const secret = Deno.env.get("CCXT_API_SECRET") ?? "";
 const testnet = !!Deno.env.get("TESTNET") ?? false;
+const wsUrl = Deno.env.get("BYBIT_WS_URL") ?? "";
+const wsApiKey = Deno.env.get("BYBIT_WS_API_KEY") ?? "";
+const wsSecret = Deno.env.get("BYBIT_WS_API_SECRET") ?? "";
 
 const ec: Exchange = new Bybit(apiKey, secret, testnet);
 
@@ -57,6 +62,46 @@ Deno.test("fetchPrices #1", async () => {
   assert(prices.ask > 50000);
   assert(prices.bid > 50000);
   assert(prices.spread < 5);
+});
+
+Deno.test("initWebsocket #1", async () => {
+  await ec.initWebsocket(wsUrl, wsApiKey, wsSecret);
+  let counter = 0;
+  let timer = 0;
+  ec.ws.onopen = (event) => {
+    log.debug("OPEN websocket: ", { event });
+  };
+  ec.ws.onclose = (event) => {
+    log.debug("CLOSE websocket: ", { event });
+  };
+  ec.ws.onerror = (event) => {
+    log.debug("ERROR websocket: ", { event });
+    clearInterval(timer);
+  };
+  ec.ws.onmessage = (mes) => {
+    log.debug("Receive message: ", { mes });
+    assertEquals(JSON.parse(mes.data).ret_msg, "pong");
+    counter++;
+
+    if (counter === 5) {
+      clearInterval(timer);
+      ec.ws.close();
+    }
+  };
+  // ping.
+  const pingMes = JSON.stringify({ op: "ping" });
+  ec.ws.send(pingMes);
+
+  timer = ec.wsHeartbeat(pingMes, 100);
+
+  // Wait until CLOSE.
+  while (true) {
+    log.debug("readyState:", ec.ws.readyState);
+    if (ec.ws.readyState === WebSocket.CLOSED) {
+      break;
+    }
+    await delay(100);
+  }
 });
 
 Deno.test("logBalance #1", async () => {

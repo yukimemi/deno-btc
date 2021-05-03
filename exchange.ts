@@ -2,6 +2,8 @@ import * as ccxt from "https://esm.sh/ccxt";
 import * as log from "https://deno.land/std/log/mod.ts";
 // import * as talib from "https://esm.sh/talib.js";
 import { delay } from "https://deno.land/std/async/mod.ts";
+import { hmac, SupportedAlgorithm } from "https://deno.land/x/crypto/hmac.ts";
+import { encodeToString } from "https://deno.land/x/std/encoding/hex.ts";
 
 export type Trend = "Bullish" | "Bearlish" | "None";
 
@@ -12,6 +14,7 @@ export class Exchange {
   // ta = talib;
 
   public ec!: ccxt.Exchange;
+  public ws!: WebSocket;
   public trend!: Trend;
   public ohlcv!: {
     open: number[];
@@ -22,6 +25,41 @@ export class Exchange {
   };
 
   constructor(apiKey: string, secret: string) {}
+
+  async initWebsocket(
+    url: string,
+    apiKey: string,
+    secret: string
+  ): Promise<void> {
+    const expires = Date.now() + 1000;
+    const te = new TextEncoder();
+    const key = te.encode(secret);
+    const data = te.encode(`GET/realtime${expires}`);
+    const signature = encodeToString(hmac("sha256", key, data));
+
+    const params = `api_key=${apiKey}&expires=${expires}&signature=${signature}`;
+    const wsUrl = `${url}?${params}`;
+    console.log(`connect: [${wsUrl}]`);
+    this.ws = new WebSocket(wsUrl);
+
+    // Wait until OPEN.
+    while (true) {
+      log.debug("[initWebsocket] readyState:", this.ws.readyState);
+      if (this.ws.readyState === WebSocket.OPEN) {
+        break;
+      }
+      await delay(100);
+    }
+  }
+
+  wsHeartbeat(message: string, interval: number): number {
+    return setInterval(() => {
+      log.debug("[wsHeartbeat] readyState:", this.ws.readyState);
+      if (this.ws.readyState === WebSocket.OPEN) {
+        this.ws.send(message);
+      }
+    }, interval);
+  }
 
   async loadMarkets(reload?: boolean): Promise<ccxt.Dictionary<ccxt.Market>> {
     return await this.ec.loadMarkets(reload);
