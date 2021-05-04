@@ -12,6 +12,8 @@ const wsSecret = Deno.env.get("BYBIT_WS_API_SECRET") ?? "";
 
 const BTCUSD = "BTC/USD";
 const XRPUSD = "XRP/USD";
+const RETRY_CNT = 5;
+let retry = 0;
 
 const ec = new Bybit(apiKey, secret, testnet);
 
@@ -78,10 +80,15 @@ Deno.test({
       log.debug("CLOSE websocket: ", { event });
       clearInterval(timer);
     });
-    ec.onErrors.push((event) => {
-      log.error("ERROR websocket: ", { event });
+    ec.onErrors.push(async (event) => {
+      log.error("ERROR websocket: ", (event as ErrorEvent).message);
       clearInterval(timer);
-      throw "Connect error";
+      retry++;
+      if (retry > RETRY_CNT) {
+        throw `(retry > RETRY_CNT) = (${retry} > ${RETRY_CNT})`;
+      }
+      await delay(5000);
+      await ec.initWebsocket(wsUrl, wsApiKey, wsSecret);
     });
     ec.onMessages.push((mes) => {
       log.debug({ mes });
@@ -127,6 +134,9 @@ Deno.test({
     log.debug(ec.orderBookL2);
     assert(ec.orderBookL2[BTCUSD].length > 0);
     await delay(1000);
+
+    const bestPrices = ec.getBestPrices(ec.orderBookL2[BTCUSD]);
+    console.log({ bestPrices });
   },
   sanitizeOps: false,
   sanitizeResources: false,

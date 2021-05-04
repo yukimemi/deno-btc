@@ -14,7 +14,7 @@ export class Exchange {
   public ws!: WebSocket;
   public onOpens: ((ev: Event) => any)[] = [];
   public onCloses: ((ev: Event) => any)[] = [];
-  public onErrors: ((ev: Event) => any)[] = [];
+  public onErrors: ((ev: Event | ErrorEvent) => any)[] = [];
   public onMessages: ((data: any) => any)[] = [];
   public trend!: Trend;
   public ohlcv!: {

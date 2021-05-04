@@ -1,4 +1,4 @@
-import * as _ from "https://cdn.skypack.dev/lodash";
+import _ from "https://cdn.skypack.dev/lodash";
 import * as ccxt from "https://esm.sh/ccxt";
 import * as log from "https://deno.land/std/log/mod.ts";
 import { Exchange } from "./exchange.ts";
@@ -10,6 +10,21 @@ export type Order = {
   side: string;
 };
 
+// OrderBookL2 structure.
+/*
+
+{
+  "BTC/USD": [
+    { price: "55876.50", symbol: "BTCUSD", id: 558765000, side: "Sell", size: 170702 },
+    { price: "55877.00", symbol: "BTCUSD", id: 558770000, side: "Sell", size: 109304 },
+    { price: "55868.50", symbol: "BTCUSD", id: 558685000, side: "Buy", size: 164652 },
+    { price: "55863.50", symbol: "BTCUSD", id: 558635000, side: "Buy", size: 139459 },
+    { price: "55865.50", symbol: "BTCUSD", id: 558655000, side: "Buy", size: 85723 },
+    { price: "55879.00", symbol: "BTCUSD", id: 558790000, side: "Sell", size: 102895 },
+    { price: "55879.50", symbol: "BTCUSD", id: 558795000, side: "Sell", size: 91631 },
+  ]
+}
+*/
 export type OrderBookL2 = {
   [key: string]: Order[];
 };
@@ -102,5 +117,23 @@ export class Bybit extends Exchange {
         }
       });
     }
+  }
+
+  getBestPrices(
+    orderBookL2: Order[]
+  ): { ask: number; bid: number; spread: number } {
+    const ask = _(orderBookL2)
+      .filter((x: Order) => x.side === "Sell")
+      .map((x: Order) => Number(x.price))
+      .sort()
+      .first();
+    const bid = _(orderBookL2)
+      .filter((x: Order) => x.side === "Buy")
+      .map((x: Order) => Number(x.price))
+      .sort()
+      .last();
+    const spread = ask - bid;
+
+    return { ask, bid, spread };
   }
 }
