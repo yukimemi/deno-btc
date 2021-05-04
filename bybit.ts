@@ -1,6 +1,7 @@
 import _ from "https://cdn.skypack.dev/lodash";
 import * as ccxt from "https://esm.sh/ccxt";
 import * as log from "https://deno.land/std/log/mod.ts";
+import { delay } from "https://deno.land/std/async/mod.ts";
 import { Exchange } from "./exchange.ts";
 
 export type Order = {
@@ -51,7 +52,7 @@ export class Bybit extends Exchange {
       }
     });
     this.ws.send(
-      JSON.stringify({ op: "subscribe", args: [`orderBookL2_25.${id}`] })
+      JSON.stringify({ op: "subscribe", args: [`orderBookL2_25.${id}`] }),
     );
   }
 
@@ -59,7 +60,7 @@ export class Bybit extends Exchange {
     symbol: string,
     profit: number,
     loss: number,
-    delta: number
+    delta: number,
   ) {
     await this.ec.loadMarkets();
     const id = this.ec.market(symbol).id;
@@ -75,32 +76,35 @@ export class Bybit extends Exchange {
             symbol,
             position.size,
             entryPrice + delta,
-            { time_in_force: "PostOnly" }
+            { time_in_force: "PostOnly" },
           );
         } else {
           await this.createLimitBuyOrder(
             symbol,
             position.size,
             entryPrice - delta,
-            { time_in_force: "PostOnly" }
+            { time_in_force: "PostOnly" },
           );
         }
 
-        const takeProfit =
-          position.side === "Buy" ? entryPrice + profit : entryPrice - profit;
-        const stopLoss =
-          position.side === "Buy" ? entryPrice - loss : entryPrice + loss;
-        if (
-          Number(position.take_profit) !== takeProfit ||
-          Number(position.stop_loss) !== stopLoss
-        ) {
-          console.log("Set TraidingStop:", { takeProfit, stopLoss });
-          await this.ec.v2PrivatePostPositionTradingStop({
-            symbol: id,
-            take_profit: takeProfit,
-            stop_loss: stopLoss,
-          });
-        }
+        // const takeProfit = Math.round(
+        //   position.side === "Buy" ? entryPrice + profit : entryPrice - profit,
+        // );
+        // const stopLoss = Math.round(
+        //   position.side === "Buy" ? entryPrice - loss : entryPrice + loss,
+        // );
+        // if (
+        //   Number(position.take_profit) !== takeProfit ||
+        //   Number(position.stop_loss) !== stopLoss
+        // ) {
+        //   console.log("Set TraidingStop:", { takeProfit, stopLoss });
+        //   await this.ec.v2PrivatePostPositionTradingStop({
+        //     symbol: id,
+        //     take_profit: takeProfit,
+        //     stop_loss: stopLoss,
+        //   });
+        //   await delay(3_000);
+        // }
       }
     });
     this.ws.send(JSON.stringify({ op: "subscribe", args: ["position"] }));
@@ -110,17 +114,17 @@ export class Bybit extends Exchange {
     symbol: string,
     newData:
       | {
-          type: "snapshot";
-          data: Order[];
-        }
+        type: "snapshot";
+        data: Order[];
+      }
       | {
-          type: "delta";
-          data: {
-            insert: Order[];
-            update: Order[];
-            delete: Order[];
-          };
-        }
+        type: "delta";
+        data: {
+          insert: Order[];
+          update: Order[];
+          delete: Order[];
+        };
+      },
   ) {
     // Snapshot.
     if (newData.type === "snapshot") {
@@ -144,7 +148,7 @@ export class Bybit extends Exchange {
       _.forEach(newData.data.update, (x: Order) => {
         const itemToUpdate = _.find(
           this.orderBookL2[symbol],
-          (d: Order) => d.id === x.id
+          (d: Order) => d.id === x.id,
         );
         const updateData = { ...itemToUpdate, ...x };
         this.orderBookL2[symbol][
@@ -157,12 +161,12 @@ export class Bybit extends Exchange {
       _.forEach(newData.data.delete, (x: Order) => {
         const itemToDelete = _.find(
           this.orderBookL2[symbol],
-          (d: Order) => d.id === x.id
+          (d: Order) => d.id === x.id,
         );
         if (itemToDelete) {
           this.orderBookL2[symbol] = _.without(
             this.orderBookL2[symbol],
-            itemToDelete
+            itemToDelete,
           );
           log.debug("Delete item:", newData.data.delete);
         }
@@ -171,7 +175,7 @@ export class Bybit extends Exchange {
   }
 
   getBestPrices(
-    orderBookL2: Order[]
+    orderBookL2: Order[],
   ): { ask: number; bid: number; spread: number } {
     const ask = _(orderBookL2)
       .filter((x: Order) => x.side === "Sell")

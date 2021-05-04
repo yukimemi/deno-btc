@@ -4,13 +4,15 @@ import { delay } from "https://deno.land/std/async/mod.ts";
 
 const BTCUSD = "BTC/USD";
 const CHANNEL = "#bybit-test";
-const FETCH_BALANCE_INTERVAL = 10_000;
+const FETCH_BALANCE_INTERVAL = 60_000;
+const CANCEL_INTERVAL = 10_000;
 const LEVERAGE = 1.5;
 const DELTA_PRICE = 5;
 const LOT = 0.01;
 const TAKE_PROFIT = 200;
 const STOP_LOSS = 100;
 const SPREAD_THRESHOLD = 10;
+const CANCEL_ORDER_DIFF = 1000 * 10;
 
 const apiKey = Deno.env.get("CCXT_API_KEY") ?? "";
 const secret = Deno.env.get("CCXT_API_SECRET") ?? "";
@@ -22,6 +24,11 @@ const wsSecret = Deno.env.get("BYBIT_WS_API_SECRET") ?? "";
 const main = async () => {
   const ec = new Bybit(apiKey, secret, testnet);
   const logBalanceTimer = ec.logBalanceInterval("BTC", FETCH_BALANCE_INTERVAL);
+  const cancelTimer = ec.cancelOrderInterval(
+    BTCUSD,
+    CANCEL_INTERVAL,
+    CANCEL_ORDER_DIFF,
+  );
 
   let timer = 0;
   try {
@@ -48,16 +55,32 @@ const main = async () => {
         if (prices.spread > SPREAD_THRESHOLD) {
           if (
             Math.abs(prices.ask - beforePrices.ask) >
-            Math.abs(prices.bid - beforePrices.bid)
+              Math.abs(prices.bid - beforePrices.bid)
           ) {
+            const take_profit = Math.round(
+              prices.bid + TAKE_PROFIT,
+            );
+            const stop_loss = Math.round(
+              prices.bid - STOP_LOSS,
+            );
             console.log("Buy:", { lot, price: prices.bid });
             await ec.createLimitBuyOrder(BTCUSD, lot, prices.bid, {
               time_in_force: "PostOnly",
+              take_profit,
+              stop_loss,
             });
           } else {
+            const take_profit = Math.round(
+              prices.ask - TAKE_PROFIT,
+            );
+            const stop_loss = Math.round(
+              prices.ask + STOP_LOSS,
+            );
             console.log("Sell:", { lot, price: prices.ask });
             await ec.createLimitSellOrder(BTCUSD, lot, prices.ask, {
               time_in_force: "PostOnly",
+              take_profit,
+              stop_loss,
             });
           }
         }
@@ -73,6 +96,7 @@ const main = async () => {
     console.error({ e });
     clearInterval(timer);
     clearInterval(logBalanceTimer);
+    clearInterval(cancelTimer);
     if (ec.ws.readyState !== WebSocket.CLOSED) {
       ec.ws.close();
     }
