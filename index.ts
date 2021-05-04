@@ -1,4 +1,3 @@
-import * as ccxt from "https://esm.sh/ccxt";
 import { postSlack } from "./mod.ts";
 import { Bybit } from "./bybit.ts";
 import { delay } from "https://deno.land/std/async/mod.ts";
@@ -6,13 +5,10 @@ import { delay } from "https://deno.land/std/async/mod.ts";
 const BTCUSD = "BTC/USD";
 const CHANNEL = "#bybit-test";
 const FETCH_BALANCE_INTERVAL = 10_000;
-const DELAY_INTERVAL = 10_000;
 const LEVERAGE = 1.5;
-const TRAILING_STOP = 50;
-const TAKE_PROFIT = TRAILING_STOP * 2.0;
-const STOP_LOSS = TRAILING_STOP * 4;
-const INTERVAL = 5;
-const PER_PAGE = 199;
+const LOT = 0.05;
+const STOP_LOSS = 100;
+const SPREAD_THRESHOLD = 10;
 
 const apiKey = Deno.env.get("CCXT_API_KEY") ?? "";
 const secret = Deno.env.get("CCXT_API_SECRET") ?? "";
@@ -29,6 +25,12 @@ const main = async () => {
 
     await delay(5_000);
 
+    const ticker = await ec.fetchTicker(BTCUSD);
+    const price = (ticker.ask + ticker.bid) / 2;
+    const size = (await ec.fetchBalance()).BTC.free * price;
+    const lot = size * LOT;
+    console.log({ price, size, lot });
+    let beforePrices = ec.getBestPrices(ec.orderBookL2[BTCUSD]);
     ec.onOpens.push((ev) => console.log("OPEN:", { ev }));
     ec.onCloses.push((ev) => console.log("CLOSE:", { ev }));
     ec.onErrors.push((ev) => {
@@ -40,6 +42,21 @@ const main = async () => {
       if (message.topic === `orderBookL2_25.${id}`) {
         const prices = ec.getBestPrices(ec.orderBookL2[BTCUSD]);
         console.log({ prices });
+        if (prices.spread > SPREAD_THRESHOLD) {
+          if (
+            Math.abs(prices.ask - beforePrices.ask) >
+            Math.abs(prices.bid - beforePrices.bid)
+          ) {
+            await ec.createLimitBuyOrder(BTCUSD, lot, prices.bid, {
+              time_in_force: "PostOnly",
+            });
+          } else {
+            await ec.createLimitSellOrder(BTCUSD, lot, prices.ask, {
+              time_in_force: "PostOnly",
+            });
+          }
+        }
+        beforePrices = prices;
       }
     });
 

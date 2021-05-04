@@ -1,3 +1,4 @@
+import _ from "https://cdn.skypack.dev/lodash";
 import * as log from "https://deno.land/std/log/mod.ts";
 import { Bybit } from "./bybit.ts";
 import { assert, assertEquals } from "https://deno.land/std/testing/asserts.ts";
@@ -20,16 +21,23 @@ const ec = new Bybit(apiKey, secret, testnet);
 Deno.test("loadMarkets #1", async () => {
   const markets = await ec.loadMarkets();
   log.debug({ markets });
+  log.debug({ ec });
+});
+
+Deno.test("fetchBalance #1", async () => {
+  const balance = await ec.fetchBalance();
+  log.debug({ balance });
 });
 
 Deno.test("fetchTicker #1", async () => {
   const ticker = await ec.fetchTicker(BTCUSD);
+  log.debug({ ticker });
   assert(ticker.ask > 50000);
   assert(ticker.bid > 50000);
 });
 
 Deno.test("fetchTicker #2", async () => {
-  const ticker = await ec.fetchTicker(BTCUSD);
+  const ticker = await ec.fetchTicker(XRPUSD);
   assert(ticker.ask > 1);
   assert(ticker.bid > 1);
 });
@@ -118,6 +126,7 @@ Deno.test({
 
     const close = {
       ping: false,
+      // deno-lint-ignore camelcase
       orderBookL2_25_BTCUSD: false,
     };
     timer = ec.startHeartBeat(pingMes, 100);
@@ -144,4 +153,48 @@ Deno.test({
 
 Deno.test("logBalance #1", async () => {
   await ec.logBalance("BTC");
+});
+
+Deno.test("createLimitBuyOrder #1", async () => {
+  const prices = await ec.fetchPrices(BTCUSD);
+  const order = await ec.createLimitBuyOrder(BTCUSD, 1, prices.bid, {
+    time_in_force: "PostOnly",
+  });
+  log.debug({ order });
+  log.debug({ orders: ec.orders });
+  assert(_.includes(ec.orders, order));
+});
+
+Deno.test("createLimitSellOrder #1", async () => {
+  const prices = await ec.fetchPrices(BTCUSD);
+  const order = await ec.createLimitSellOrder(BTCUSD, 1, prices.bid, {
+    time_in_force: "PostOnly",
+  });
+  log.debug({ order });
+  log.debug({ orders: ec.orders });
+  assert(_.includes(ec.orders, order));
+});
+
+Deno.test("cancelOrder #1", async () => {
+  const prices = await ec.fetchPrices(BTCUSD);
+  const buyOrder = await ec.createLimitBuyOrder(BTCUSD, 1, prices.bid, {
+    time_in_force: "PostOnly",
+  });
+  const cancelOrder = await ec.cancelOrder(buyOrder.id, BTCUSD);
+  log.debug({ cancelOrder });
+  assert(!_.includes(ec.orders, cancelOrder));
+});
+
+Deno.test("cancelAllOrders #1", async () => {
+  const prices = await ec.fetchPrices(BTCUSD);
+  const _buyOrder = await ec.createLimitBuyOrder(BTCUSD, 1, prices.bid, {
+    time_in_force: "PostOnly",
+  });
+  const _sellOrder = await ec.createLimitSellOrder(BTCUSD, 1, prices.ask, {
+    time_in_force: "PostOnly",
+  });
+  const cancelOrders = await ec.cancelAllOrders(BTCUSD);
+  console.log({ cancelOrders });
+  assertEquals(ec.orders.length, 0);
+  assertEquals(cancelOrders, 2);
 });

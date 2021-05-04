@@ -1,10 +1,7 @@
-import { delay } from "https://deno.land/std/async/mod.ts";
 import {
   WebClient,
   WebAPICallResult,
 } from "https://deno.land/x/slack_web_api/mod.ts";
-
-const SLACK_CHANNEL = "#bybit-test";
 
 export const postSlack = async (
   channel: string,
