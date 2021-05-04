@@ -50,6 +50,32 @@ Deno.test("fetchTickers #1", async () => {
   assert(tickers[XRPUSD].bid > 1);
 });
 
+Deno.test("fetchOrders #1", async () => {
+  const prices = await ec.fetchPrices(BTCUSD);
+  const _buyOrder = await ec.createLimitBuyOrder(BTCUSD, 1, prices.bid, {
+    time_in_force: "PostOnly",
+  });
+  const _sellOrder = await ec.createLimitSellOrder(BTCUSD, 1, prices.ask, {
+    time_in_force: "PostOnly",
+  });
+  const orders = await ec.fetchOrders(BTCUSD);
+  console.log({ orders });
+  assert(orders.length >= 2);
+});
+
+Deno.test("fetchOpenOrders #1", async () => {
+  const prices = await ec.fetchPrices(BTCUSD);
+  const _buyOrder = await ec.createLimitBuyOrder(BTCUSD, 1, prices.bid, {
+    time_in_force: "PostOnly",
+  });
+  const _sellOrder = await ec.createLimitSellOrder(BTCUSD, 1, prices.ask, {
+    time_in_force: "PostOnly",
+  });
+  const orders = await ec.fetchOpenOrders(BTCUSD);
+  console.log({ orders });
+  assert(orders.length >= 2);
+});
+
 Deno.test("fetchOHLCV #1", async () => {
   const times = 30;
   const since = ec.ec.milliseconds() - 1000 * 60 * times;

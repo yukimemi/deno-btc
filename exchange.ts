@@ -177,8 +177,8 @@ export class Exchange {
     console.log({ [symbol]: balance[symbol] });
   }
 
-  logBalanceInterval(symbol: string, interval: number): void {
-    setInterval(async () => {
+  logBalanceInterval(symbol: string, interval: number): number {
+    return setInterval(async () => {
       await this.logBalance(symbol);
     }, interval);
   }
@@ -225,6 +225,24 @@ export class Exchange {
     };
 
     return ohlcv;
+  }
+
+  async fetchOrders(
+    symbol?: string,
+    since?: number,
+    limit?: number,
+    params?: ccxt.Params
+  ): Promise<ccxt.Order[]> {
+    return await this.ec.fetchOrders(symbol, since, limit, params);
+  }
+
+  async fetchOpenOrders(
+    symbol?: string,
+    since?: number,
+    limit?: number,
+    params?: ccxt.Params
+  ): Promise<ccxt.Order[]> {
+    return await this.ec.fetchOpenOrders(symbol, since, limit, params);
   }
 
   async createOrder(
@@ -315,5 +333,24 @@ export class Exchange {
     const orders = await this.ec.cancelAllOrders(symbol, params);
     this.orders = [];
     return orders;
+  }
+
+  cancelOrderInterval(
+    symbol?: string,
+    interval: number,
+    params?: ccxt.Params
+  ): number {
+    return setInterval(async () => {
+      const now = new Date();
+      const nowTime = now.getTime() * 1000;
+      const orders = await this.fetchOpenOrders(symbol);
+      orders.forEach((x) => {
+        console.log({
+          diffUnix: nowTime - x.timestamp,
+          now,
+          order: x.datetime,
+        });
+      });
+    }, interval);
   }
 }
