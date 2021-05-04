@@ -6,11 +6,12 @@ import { hmac, SupportedAlgorithm } from "https://deno.land/x/crypto/hmac.ts";
 import { encodeToString } from "https://deno.land/x/std/encoding/hex.ts";
 
 export type Trend = "Bullish" | "Bearlish" | "None";
+export const SYMBOL = {
+  BTCUSD: "BTC/USD",
+  XRPUSD: "XRP/USD",
+} as const;
 
 export class Exchange {
-  BTC = "BTC/USD";
-  XRP = "XRP/USD";
-
   // ta = talib;
 
   public ec!: ccxt.Exchange;
@@ -52,9 +53,9 @@ export class Exchange {
     }
   }
 
-  wsHeartbeat(message: string, interval: number): number {
+  startHeartBeat(message: string, interval: number): number {
     return setInterval(() => {
-      log.debug("[wsHeartbeat] readyState:", this.ws.readyState);
+      log.debug("[startHeartBeat] readyState:", this.ws.readyState);
       if (this.ws.readyState === WebSocket.OPEN) {
         this.ws.send(message);
       }
@@ -69,18 +70,7 @@ export class Exchange {
     symbol: string,
     params?: ccxt.Params
   ): Promise<ccxt.Ticker> {
-    if (this.ec.hasFetchTicker) {
-      return await this.ec.fetchTicker(symbol, params);
-    }
-
-    return await this._fetchTicker(symbol, params);
-  }
-
-  async _fetchTicker(
-    symbol: string,
-    params?: ccxt.Params
-  ): Promise<ccxt.Ticker> {
-    return await Promise.reject("No default implementation.");
+    return await this.ec.fetchTicker(symbol, params);
   }
 
   async logBalance(symbol: string): Promise<void> {
@@ -98,18 +88,7 @@ export class Exchange {
     symbol?: string[],
     params?: ccxt.Params
   ): Promise<ccxt.Dictionary<ccxt.Ticker>> {
-    if (this.ec.hasFetchTickers) {
-      return await this.ec.fetchTickers(symbol, params);
-    }
-
-    return await this._fetchTickers(symbol, params);
-  }
-
-  async _fetchTickers(
-    symbol?: string[],
-    params?: ccxt.Params
-  ): Promise<ccxt.Dictionary<ccxt.Ticker>> {
-    return await Promise.reject("No default implementation.");
+    return await this.ec.fetchTickers(symbol, params);
   }
 
   async fetchPrices(
@@ -130,36 +109,22 @@ export class Exchange {
     limit?: number,
     params?: ccxt.Params
   ): Promise<ccxt.OHLCV[]> {
-    if (this.ec.hasFetchOHLCV) {
-      const ohlcv = await this.ec.fetchOHLCV(
-        symbol,
-        timeframe,
-        since,
-        limit,
-        params
-      );
+    const ohlcv = await this.ec.fetchOHLCV(
+      symbol,
+      timeframe,
+      since,
+      limit,
+      params
+    );
 
-      this.ohlcv = {
-        open: ohlcv.map((x) => x[1]),
-        high: ohlcv.map((x) => x[2]),
-        low: ohlcv.map((x) => x[3]),
-        close: ohlcv.map((x) => x[4]),
-        value: ohlcv.map((x) => x[5]),
-      };
+    this.ohlcv = {
+      open: ohlcv.map((x) => x[1]),
+      high: ohlcv.map((x) => x[2]),
+      low: ohlcv.map((x) => x[3]),
+      close: ohlcv.map((x) => x[4]),
+      value: ohlcv.map((x) => x[5]),
+    };
 
-      return ohlcv;
-    }
-
-    return await this._fetchOHLCV(symbol, timeframe, since, limit, params);
-  }
-
-  async _fetchOHLCV(
-    symbol: string,
-    timeframe?: string,
-    since?: number,
-    limit?: number,
-    params?: ccxt.Params
-  ): Promise<ccxt.OHLCV[]> {
-    return await Promise.reject("No default implementation.");
+    return ohlcv;
   }
 }
