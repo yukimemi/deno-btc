@@ -6,7 +6,7 @@ const BTCUSD = "BTC/USD";
 const CHANNEL = "#bybit-test";
 const FETCH_BALANCE_INTERVAL = 10_000;
 const LEVERAGE = 1.5;
-const LOT = 0.05;
+const LOT = 0.01;
 const STOP_LOSS = 100;
 const SPREAD_THRESHOLD = 10;
 
@@ -28,7 +28,7 @@ const main = async () => {
     const ticker = await ec.fetchTicker(BTCUSD);
     const price = (ticker.ask + ticker.bid) / 2;
     const size = (await ec.fetchBalance()).BTC.free * price;
-    const lot = size * LOT;
+    const lot = Math.round(size * LOT);
     console.log({ price, size, lot });
     let beforePrices = ec.getBestPrices(ec.orderBookL2[BTCUSD]);
     ec.onOpens.push((ev) => console.log("OPEN:", { ev }));
@@ -37,23 +37,36 @@ const main = async () => {
       console.error({ ev });
       throw `Error message: ${(ev as ErrorEvent).message}`;
     });
-    ec.onMessages.push((message) => {
-      const id = ec.ec.market(BTCUSD).id;
+
+    const id = ec.ec.market(BTCUSD).id;
+    ec.onMessages.push(async (message) => {
       if (message.topic === `orderBookL2_25.${id}`) {
         const prices = ec.getBestPrices(ec.orderBookL2[BTCUSD]);
         console.log({ prices });
         if (prices.spread > SPREAD_THRESHOLD) {
           if (
             Math.abs(prices.ask - beforePrices.ask) >
-            Math.abs(prices.bid - beforePrices.bid)
+              Math.abs(prices.bid - beforePrices.bid)
           ) {
-            await ec.createLimitBuyOrder(BTCUSD, lot, prices.bid, {
-              time_in_force: "PostOnly",
-            });
+            console.log("Buy:", { lot, price: prices.bid });
+            await ec.createLimitBuyOrder(
+              BTCUSD,
+              lot,
+              prices.bid,
+              {
+                time_in_force: "PostOnly",
+              },
+            );
           } else {
-            await ec.createLimitSellOrder(BTCUSD, lot, prices.ask, {
-              time_in_force: "PostOnly",
-            });
+            console.log("Sell:", { lot, price: prices.ask });
+            await ec.createLimitSellOrder(
+              BTCUSD,
+              lot,
+              prices.ask,
+              {
+                time_in_force: "PostOnly",
+              },
+            );
           }
         }
         beforePrices = prices;
