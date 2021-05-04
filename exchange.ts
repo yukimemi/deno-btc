@@ -6,16 +6,16 @@ import { hmac, SupportedAlgorithm } from "https://deno.land/x/crypto/hmac.ts";
 import { encodeToString } from "https://deno.land/x/std/encoding/hex.ts";
 
 export type Trend = "Bullish" | "Bearlish" | "None";
-export const SYMBOL = {
-  BTCUSD: "BTC/USD",
-  XRPUSD: "XRP/USD",
-} as const;
 
 export class Exchange {
   // ta = talib;
 
   public ec!: ccxt.Exchange;
   public ws!: WebSocket;
+  public onOpens: ((ev: Event) => any)[] = [];
+  public onCloses: ((ev: Event) => any)[] = [];
+  public onErrors: ((ev: Event) => any)[] = [];
+  public onMessages: ((data: any) => any)[] = [];
   public trend!: Trend;
   public ohlcv!: {
     open: number[];
@@ -42,6 +42,20 @@ export class Exchange {
     const wsUrl = `${url}?${params}`;
     console.log(`connect: [${wsUrl}]`);
     this.ws = new WebSocket(wsUrl);
+
+    this.ws.onopen = (ev) => {
+      this.onOpens.forEach((f) => f(ev));
+    };
+    this.ws.onclose = (ev) => {
+      this.onCloses.forEach((f) => f(ev));
+    };
+    this.ws.onerror = (ev) => {
+      this.onErrors.forEach((f) => f(ev));
+    };
+    this.ws.onmessage = (ev) => {
+      const data = JSON.parse(ev.data);
+      this.onMessages.forEach((f) => f(data));
+    };
 
     // Wait until OPEN.
     while (true) {

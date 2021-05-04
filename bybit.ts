@@ -1,7 +1,7 @@
 import * as _ from "https://cdn.skypack.dev/lodash";
 import * as ccxt from "https://esm.sh/ccxt";
 import * as log from "https://deno.land/std/log/mod.ts";
-import { Exchange, SYMBOL } from "./exchange.ts";
+import { Exchange } from "./exchange.ts";
 
 export type Order = {
   id: number;
@@ -11,15 +11,11 @@ export type Order = {
 };
 
 export type OrderBookL2 = {
-  [SYMBOL.BTCUSD]: Order[];
-  [SYMBOL.XRPUSD]: Order[];
+  [key: string]: Order[];
 };
 
 export class Bybit extends Exchange {
-  public orderBookL2: OrderBookL2 = {
-    [SYMBOL.BTCUSD]: [],
-    [SYMBOL.XRPUSD]: [],
-  };
+  public orderBookL2: OrderBookL2 = {};
 
   constructor(apiKey: string, secret: string, testnet: boolean = false) {
     super(apiKey, secret);
@@ -30,16 +26,22 @@ export class Bybit extends Exchange {
     }
   }
 
-  onmessage(event: MessageEvent<any>) {}
-
-  subscribeOrderBookL2_25(symbol: string) {
+  async subscribeOrderBookL2_25(symbol: string) {
+    await this.ec.loadMarkets();
+    const id = this.ec.market(symbol).id;
+    this.onMessages.unshift((message) => {
+      if (message.topic === `orderBookL2_25.${id}`) {
+        log.debug("Receive message: ", { message });
+        this.deltaOrderBookL2(symbol, message);
+      }
+    });
     this.ws.send(
-      JSON.stringify({ op: "subscribe", args: [`orderBookL2_25.${symbol}`] })
+      JSON.stringify({ op: "subscribe", args: [`orderBookL2_25.${id}`] })
     );
   }
 
   deltaOrderBookL2(
-    symbol: keyof OrderBookL2,
+    symbol: string,
     newData:
       | {
           type: "snapshot";
