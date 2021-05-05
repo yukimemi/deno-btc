@@ -27,7 +27,7 @@ const main = async () => {
   const cancelTimer = ec.cancelOrderInterval(
     BTCUSD,
     CANCEL_INTERVAL,
-    CANCEL_ORDER_DIFF,
+    CANCEL_ORDER_DIFF
   );
 
   let timer = 0;
@@ -52,17 +52,23 @@ const main = async () => {
       if (message.topic === `orderBookL2_25.${id}`) {
         const prices = ec.getBestPrices(ec.orderBookL2[BTCUSD]);
         console.log({ prices });
-        if (prices.spread > SPREAD_THRESHOLD) {
+        if (
+          prices.spread > SPREAD_THRESHOLD &&
+          !(
+            prices.ask === beforePrices.ask &&
+            prices.bid === beforePrices.bid &&
+            prices.spread === beforePrices.spread
+          )
+        ) {
           if (
             Math.abs(prices.ask - beforePrices.ask) >
-              Math.abs(prices.bid - beforePrices.bid)
+            Math.abs(prices.bid - beforePrices.bid)
           ) {
-            const take_profit = Math.round(
-              prices.bid + TAKE_PROFIT,
-            );
-            const stop_loss = Math.round(
-              prices.bid - STOP_LOSS,
-            );
+            beforePrices = prices;
+            // deno-lint-ignore camelcase
+            const take_profit = Math.round(prices.bid + TAKE_PROFIT);
+            // deno-lint-ignore camelcase
+            const stop_loss = Math.round(prices.bid - STOP_LOSS);
             console.log("Buy:", { lot, price: prices.bid });
             await ec.createLimitBuyOrder(BTCUSD, lot, prices.bid, {
               time_in_force: "PostOnly",
@@ -70,12 +76,11 @@ const main = async () => {
               stop_loss,
             });
           } else {
-            const take_profit = Math.round(
-              prices.ask - TAKE_PROFIT,
-            );
-            const stop_loss = Math.round(
-              prices.ask + STOP_LOSS,
-            );
+            beforePrices = prices;
+            // deno-lint-ignore camelcase
+            const take_profit = Math.round(prices.ask - TAKE_PROFIT);
+            // deno-lint-ignore camelcase
+            const stop_loss = Math.round(prices.ask + STOP_LOSS);
             console.log("Sell:", { lot, price: prices.ask });
             await ec.createLimitSellOrder(BTCUSD, lot, prices.ask, {
               time_in_force: "PostOnly",
