@@ -42,14 +42,10 @@ const main = async () => {
   );
 
   let timer = 0;
+  let lot = 0;
   try {
     await delay(5_000);
 
-    const ticker = await ec.fetchTicker(BTCUSD);
-    const price = (ticker.ask + ticker.bid) / 2;
-    const size = (await ec.fetchBalance()).BTC.free * price;
-    const lot = Math.round(size * LOT);
-    console.log({ price, size, lot });
     let beforePrices = ec.getBestPrices(ec.orderBookL2[BTCUSD]);
     ec.onOpens.push((ev) => console.log("OPEN:", { ev }));
     ec.onCloses.push((ev) => console.log("CLOSE:", { ev }));
@@ -58,6 +54,7 @@ const main = async () => {
       throw `Error message: ${(ev as ErrorEvent).message}`;
     });
 
+    await ec.loadMarkets();
     const id = ec.ec.market(BTCUSD).id;
     ec.onMessages.push(async (message) => {
       if (message.topic === `orderBookL2_25.${id}`) {
@@ -72,6 +69,9 @@ const main = async () => {
           )
         ) {
           console.log({ prices });
+          const price = (prices.ask + prices.bid) / 2;
+          const size = ec.balances.BTC.free * price;
+          lot = Math.round(size * LOT);
           if (
             Math.abs(prices.ask - beforePrices.ask) >
             Math.abs(prices.bid - beforePrices.bid)

@@ -10,6 +10,7 @@ export type Trend = "Bullish" | "Bearlish" | "None";
 
 export class Exchange {
   public ec!: ccxt.Exchange;
+  public balances!: ccxt.Balances;
   public ws!: WebSocket;
   // deno-lint-ignore no-explicit-any
   public onOpens: ((ev: Event) => any)[] = [];
@@ -111,7 +112,8 @@ export class Exchange {
     }
   */
   async fetchBalance(params?: ccxt.Params): Promise<ccxt.Balances> {
-    return await this.ec.fetchBalance(params);
+    this.balances = await this.ec.fetchBalance(params);
+    return this.balances;
   }
 
   /*
