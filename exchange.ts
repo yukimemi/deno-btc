@@ -271,16 +271,33 @@ export class Exchange {
     price?: number,
     params?: ccxt.Params
   ): Promise<ccxt.Order> {
-    const order = await this.ec.createOrder(
-      symbol,
-      type,
-      side,
-      amount,
-      price,
-      params
-    );
-    this.orders.push(order);
-    return order;
+    try {
+      const order = await this.ec.createOrder(
+        symbol,
+        type,
+        side,
+        amount,
+        price,
+        params
+      );
+      this.orders.push(order);
+      return order;
+    } catch (e) {
+      if (e instanceof ccxt.RateLimitExceeded) {
+        console.error(e);
+        await delay(10_000);
+        return await this.createOrder(
+          symbol,
+          type,
+          side,
+          amount,
+          price,
+          params
+        );
+      } else {
+        throw e;
+      }
+    }
   }
 
   async createLimitOrder(
@@ -290,15 +307,25 @@ export class Exchange {
     price: number,
     params?: ccxt.Params
   ): Promise<ccxt.Order> {
-    const order = await this.ec.createLimitOrder(
-      symbol,
-      side,
-      amount,
-      price,
-      params
-    );
-    this.orders.push(order);
-    return order;
+    try {
+      const order = await this.ec.createLimitOrder(
+        symbol,
+        side,
+        amount,
+        price,
+        params
+      );
+      this.orders.push(order);
+      return order;
+    } catch (e) {
+      if (e instanceof ccxt.RateLimitExceeded) {
+        console.error(e);
+        await delay(10_000);
+        return await this.createLimitOrder(symbol, side, amount, price, params);
+      } else {
+        throw e;
+      }
+    }
   }
 
   async createLimitBuyOrder(
@@ -307,14 +334,24 @@ export class Exchange {
     price: number,
     params?: ccxt.Params
   ): Promise<ccxt.Order> {
-    const order = await this.ec.createLimitBuyOrder(
-      symbol,
-      amount,
-      price,
-      params
-    );
-    this.orders.push(order);
-    return order;
+    try {
+      const order = await this.ec.createLimitBuyOrder(
+        symbol,
+        amount,
+        price,
+        params
+      );
+      this.orders.push(order);
+      return order;
+    } catch (e) {
+      if (e instanceof ccxt.RateLimitExceeded) {
+        console.error(e);
+        await delay(10_000);
+        return await this.createLimitBuyOrder(symbol, amount, price, params);
+      } else {
+        throw e;
+      }
+    }
   }
 
   async createLimitSellOrder(
@@ -323,14 +360,24 @@ export class Exchange {
     price: number,
     params?: ccxt.Params
   ): Promise<ccxt.Order> {
-    const order = await this.ec.createLimitSellOrder(
-      symbol,
-      amount,
-      price,
-      params
-    );
-    this.orders.push(order);
-    return order;
+    try {
+      const order = await this.ec.createLimitSellOrder(
+        symbol,
+        amount,
+        price,
+        params
+      );
+      this.orders.push(order);
+      return order;
+    } catch (e) {
+      if (e instanceof ccxt.RateLimitExceeded) {
+        console.error(e);
+        await delay(10_000);
+        return await this.createLimitSellOrder(symbol, amount, price, params);
+      } else {
+        throw e;
+      }
+    }
   }
 
   async cancelOrder(
