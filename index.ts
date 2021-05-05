@@ -59,7 +59,7 @@ const main = async () => {
 
     await ec.loadMarkets();
     const id = ec.ec.market(BTCUSD).id;
-    let canOrder = 0;
+    let canOrder = 100;
     setInterval(() => {
       canOrder--;
     }, 10_000);
@@ -125,24 +125,24 @@ const main = async () => {
             const take_profit = Math.round(prices.bid + TAKE_PROFIT);
             // deno-lint-ignore camelcase
             const stop_loss = Math.round(prices.bid - STOP_LOSS);
-            console.log("Buy:", { lot, price: prices.bid });
-            ec.createLimitBuyOrder(BTCUSD, lot, prices.bid, {
-              time_in_force: "PostOnly",
-              take_profit,
-              stop_loss,
-            });
+            // console.log("Buy:", { lot, price: prices.bid });
+            // ec.createLimitBuyOrder(BTCUSD, lot, prices.bid, {
+            //   time_in_force: "PostOnly",
+            //   take_profit,
+            //   stop_loss,
+            // });
           }
           if (ec.canCreateOrder("Sell")) {
             // deno-lint-ignore camelcase
             const take_profit = Math.round(prices.ask - TAKE_PROFIT);
             // deno-lint-ignore camelcase
             const stop_loss = Math.round(prices.ask + STOP_LOSS);
-            console.log("Sell:", { lot, price: prices.ask });
-            ec.createLimitSellOrder(BTCUSD, lot, prices.ask, {
-              time_in_force: "PostOnly",
-              take_profit,
-              stop_loss,
-            });
+            // console.log("Sell:", { lot, price: prices.ask });
+            // ec.createLimitSellOrder(BTCUSD, lot, prices.ask, {
+            //   time_in_force: "PostOnly",
+            //   take_profit,
+            //   stop_loss,
+            // });
           }
           canOrder++;
         }
