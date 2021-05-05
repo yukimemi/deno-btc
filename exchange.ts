@@ -421,6 +421,7 @@ export class Exchange {
       const now = new Date();
       const nowTime = now.getTime();
       const orders = await this.fetchOpenOrders(symbol);
+      let fixedOpenOrders: ccxt.Order[] = [];
       orders.forEach(async (x) => {
         log.debug({
           nowTime,
@@ -437,15 +438,18 @@ export class Exchange {
             size: x.amount,
             price: x.price,
           });
-          const isFixed =
-            this.fixedOrders.filter((o) => o.id === x.id).length > 0;
-          if (isFixed) {
+          const fixedOrder = this.fixedOrders.filter((o) => o.id === x.id);
+          if (fixedOrder.length > 0) {
             console.log(`order id: ${x.id} is fixed. so do not cancel.`);
+            fixedOpenOrders.push(...fixedOrder);
             return;
           }
           await this.cancelOrder(x.id, symbol);
         }
       });
+      this.fixedOrders = this.fixedOrders.filter((x) =>
+        fixedOpenOrders.some((y) => y.id === x.id)
+      );
     }, interval);
   }
 }
