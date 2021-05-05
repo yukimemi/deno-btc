@@ -75,11 +75,15 @@ const main = async () => {
           const price = (prices.ask + prices.bid) / 2;
           const size = ec.balances.BTC.free * price;
           lot = Math.round(size * LOT * LEVERAGE);
+          ec.positionSizeMax = lot * 3;
           if (
             Math.abs(prices.ask - beforePrices.ask) >
             Math.abs(prices.bid - beforePrices.bid)
           ) {
             beforePrices = prices;
+            if (!ec.canCreateOrder("Buy")) {
+              return;
+            }
             // deno-lint-ignore camelcase
             const take_profit = Math.round(prices.bid + TAKE_PROFIT);
             // deno-lint-ignore camelcase
@@ -92,6 +96,9 @@ const main = async () => {
             });
           } else {
             beforePrices = prices;
+            if (!ec.canCreateOrder("Sell")) {
+              return;
+            }
             // deno-lint-ignore camelcase
             const take_profit = Math.round(prices.ask - TAKE_PROFIT);
             // deno-lint-ignore camelcase

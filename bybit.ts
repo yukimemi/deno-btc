@@ -39,6 +39,7 @@ export class Bybit extends Exchange {
     take_profit: "",
     stop_loss: "",
   };
+  public positionSizeMax = 0;
 
   constructor(apiKey: string, secret: string, testnet: boolean = false) {
     super(apiKey, secret);
@@ -97,6 +98,21 @@ export class Bybit extends Exchange {
     });
     this.position = JSON.parse(res).result;
     return this.position;
+  }
+
+  canCreateOrder(side: "Buy" | "Sell"): boolean {
+    if (
+      this.position.side === side &&
+      Number(this.position.size) >= this.positionSizeMax
+    ) {
+      console.log(`Already position max. skip ${side} order:`, {
+        side: this.position.side,
+        size: this.position.size,
+        entry_price: this.position.entry_price,
+      });
+      return false;
+    }
+    return true;
   }
 
   async subscribeOrderBookL2_25(symbol: string) {
@@ -181,12 +197,11 @@ export class Bybit extends Exchange {
               size,
             });
             return;
-          } else {
-            this.fixedOrders.forEach(
-              async (x) => await this.cancelOrder(x.id, symbol)
-            );
-            this.fixedOrders = [];
           }
+          this.fixedOrders.forEach(
+            async (x) => await this.cancelOrder(x.id, symbol)
+          );
+          this.fixedOrders = [];
 
           console.log("[Position] Sell:", { size, price });
           this.fixedOrders.push(
@@ -214,12 +229,11 @@ export class Bybit extends Exchange {
               size,
             });
             return;
-          } else {
-            this.fixedOrders.forEach(
-              async (x) => await this.cancelOrder(x.id, symbol)
-            );
-            this.fixedOrders = [];
           }
+          this.fixedOrders.forEach(
+            async (x) => await this.cancelOrder(x.id, symbol)
+          );
+          this.fixedOrders = [];
 
           console.log("[Position] Buy:", { size, price });
           this.fixedOrders.push(
@@ -387,12 +401,11 @@ export class Bybit extends Exchange {
             size,
           });
           return;
-        } else {
-          this.fixedOrders.forEach(
-            async (x) => await this.cancelOrder(x.id, symbol)
-          );
-          this.fixedOrders = [];
         }
+        this.fixedOrders.forEach(
+          async (x) => await this.cancelOrder(x.id, symbol)
+        );
+        this.fixedOrders = [];
 
         console.log("[closePositionInterval] Sell:", { size, price });
         this.fixedOrders.push(
@@ -426,12 +439,11 @@ export class Bybit extends Exchange {
             size,
           });
           return;
-        } else {
-          this.fixedOrders.forEach(
-            async (x) => await this.cancelOrder(x.id, symbol)
-          );
-          this.fixedOrders = [];
         }
+        this.fixedOrders.forEach(
+          async (x) => await this.cancelOrder(x.id, symbol)
+        );
+        this.fixedOrders = [];
 
         console.log("[closePositionInterval] Buy:", { size, price });
         this.fixedOrders.push(
