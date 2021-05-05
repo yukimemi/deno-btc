@@ -1,6 +1,7 @@
-import { postSlack } from "./mod.ts";
+import * as log from "https://deno.land/std/log/mod.ts";
 import { Bybit } from "./bybit.ts";
 import { delay } from "https://deno.land/std/async/mod.ts";
+import { postSlack } from "./mod.ts";
 
 const BTCUSD = "BTC/USD";
 const CHANNEL = "#bybit-test";
@@ -51,7 +52,7 @@ const main = async () => {
     ec.onMessages.push(async (message) => {
       if (message.topic === `orderBookL2_25.${id}`) {
         const prices = ec.getBestPrices(ec.orderBookL2[BTCUSD]);
-        console.log({ prices });
+        log.debug({ prices });
         if (
           prices.spread > SPREAD_THRESHOLD &&
           !(
@@ -60,11 +61,12 @@ const main = async () => {
             prices.spread === beforePrices.spread
           )
         ) {
+          console.log({ prices });
+          beforePrices = prices;
           if (
             Math.abs(prices.ask - beforePrices.ask) >
             Math.abs(prices.bid - beforePrices.bid)
           ) {
-            beforePrices = prices;
             // deno-lint-ignore camelcase
             const take_profit = Math.round(prices.bid + TAKE_PROFIT);
             // deno-lint-ignore camelcase
@@ -76,7 +78,6 @@ const main = async () => {
               stop_loss,
             });
           } else {
-            beforePrices = prices;
             // deno-lint-ignore camelcase
             const take_profit = Math.round(prices.ask - TAKE_PROFIT);
             // deno-lint-ignore camelcase

@@ -32,6 +32,13 @@ export type OrderBookL2 = {
 
 export class Bybit extends Exchange {
   public orderBookL2: OrderBookL2 = {};
+  public position = {
+    side: "",
+    size: 0,
+    entry_price: 0,
+    take_profit: 0,
+    stop_loss: 0,
+  };
 
   constructor(apiKey: string, secret: string, testnet: boolean = false) {
     super(apiKey, secret);
@@ -64,60 +71,90 @@ export class Bybit extends Exchange {
   ) {
     await this.ec.loadMarkets();
     const id = this.ec.market(symbol).id;
-    let before = { side: "", size: 0, entryPrice: 0 };
+    let before = {
+      side: "",
+      size: 0,
+      // deno-lint-ignore camelcase
+      entry_price: 0,
+      // deno-lint-ignore camelcase
+      take_profit: 0,
+      // deno-lint-ignore camelcase
+      stop_loss: 0,
+    };
     this.onMessages.push(async (message) => {
       if (message.topic === "position") {
         log.debug("Receive message: ", { message });
         // Set take profit and stop loss.
-        const position = message.data[0];
-        if (position.side === "None") return;
-        const side = position.side;
-        const size = Number(position.size);
-        const entryPrice = Number(position.entry_price);
+        this.position = message.data[0];
+        if (this.position.side === "None") return;
+        const side = this.position.side;
+        const size = Number(this.position.size);
+        // deno-lint-ignore camelcase
+        const entry_price = Number(this.position.entry_price);
+        // deno-lint-ignore camelcase
+        const take_profit = Number(this.position.take_profit);
+        // deno-lint-ignore camelcase
+        const stop_loss = Number(this.position.stop_loss);
         if (
           before.side === side &&
           before.size === size &&
-          before.entryPrice === entryPrice
+          before.entry_price === entry_price &&
+          before.take_profit === take_profit &&
+          before.stop_loss === stop_loss
         ) {
           return;
         }
+        before = {
+          side,
+          size,
+          entry_price,
+          take_profit,
+          stop_loss,
+        };
         if (side === "Buy") {
-          const price = entryPrice + delta;
+          const price = entry_price + delta;
           console.log("[Position] Sell:", { size, price });
           await this.createLimitSellOrder(symbol, size, price, {
             time_in_force: "PostOnly",
           });
         } else {
-          const price = entryPrice - delta;
+          const price = entry_price - delta;
           console.log("[Position] Buy:", { size, price });
           await this.createLimitBuyOrder(symbol, size, price, {
             time_in_force: "PostOnly",
           });
         }
-        before = {
-          side,
-          size,
-          entryPrice,
-        };
 
-        // const takeProfit = Math.round(
-        //   position.side === "Buy" ? entryPrice + profit : entryPrice - profit,
-        // );
-        // const stopLoss = Math.round(
-        //   position.side === "Buy" ? entryPrice - loss : entryPrice + loss,
-        // );
-        // if (
-        //   Number(position.take_profit) !== takeProfit ||
-        //   Number(position.stop_loss) !== stopLoss
-        // ) {
-        //   console.log("Set TraidingStop:", { takeProfit, stopLoss });
-        //   await this.ec.v2PrivatePostPositionTradingStop({
-        //     symbol: id,
-        //     take_profit: takeProfit,
-        //     stop_loss: stopLoss,
-        //   });
-        //   await delay(3_000);
-        // }
+        {
+          // deno-lint-ignore camelcase
+          const take_profit = Math.round(
+            this.position.side === "Buy"
+              ? entry_price + profit
+              : entry_price - profit
+          );
+          // deno-lint-ignore camelcase
+          const stop_loss = Math.round(
+            this.position.side === "Buy"
+              ? entry_price - loss
+              : entry_price + loss
+          );
+          if (
+            Number(this.position.take_profit) !== take_profit ||
+            Number(this.position.stop_loss) !== stop_loss
+          ) {
+            console.log("Set TraidingStop:", { take_profit, stop_loss });
+            try {
+              await this.ec.v2PrivatePostPositionTradingStop({
+                symbol: id,
+                take_profit,
+                stop_loss,
+              });
+              await delay(3_000);
+            } catch (e) {
+              console.error({ e });
+            }
+          }
+        }
       }
     });
     this.ws.send(JSON.stringify({ op: "subscribe", args: ["position"] }));
