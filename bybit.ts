@@ -109,7 +109,7 @@ export class Bybit extends Exchange {
       }
     });
     this.ws.send(
-      JSON.stringify({ op: "subscribe", args: [`orderBookL2_25.${id}`] })
+      JSON.stringify({ op: "subscribe", args: [`orderBookL2_25.${id}`] }),
     );
   }
 
@@ -117,7 +117,7 @@ export class Bybit extends Exchange {
     symbol: string,
     profit: number,
     loss: number,
-    delta: number
+    delta: number,
   ) {
     await this.ec.loadMarkets();
     const id = this.ec.market(symbol).id;
@@ -184,13 +184,13 @@ export class Bybit extends Exchange {
           const take_profit = Math.round(
             this.position.side === "Buy"
               ? entry_price + profit
-              : entry_price - profit
+              : entry_price - profit,
           );
           // deno-lint-ignore camelcase
           const stop_loss = Math.round(
             this.position.side === "Buy"
               ? entry_price - loss
-              : entry_price + loss
+              : entry_price + loss,
           );
           if (
             Number(this.position.take_profit) !== take_profit ||
@@ -218,17 +218,17 @@ export class Bybit extends Exchange {
     symbol: string,
     newData:
       | {
-          type: "snapshot";
-          data: Order[];
-        }
+        type: "snapshot";
+        data: Order[];
+      }
       | {
-          type: "delta";
-          data: {
-            insert: Order[];
-            update: Order[];
-            delete: Order[];
-          };
-        }
+        type: "delta";
+        data: {
+          insert: Order[];
+          update: Order[];
+          delete: Order[];
+        };
+      },
   ) {
     // Snapshot.
     if (newData.type === "snapshot") {
@@ -252,7 +252,7 @@ export class Bybit extends Exchange {
       _.forEach(newData.data.update, (x: Order) => {
         const itemToUpdate = _.find(
           this.orderBookL2[symbol],
-          (d: Order) => d.id === x.id
+          (d: Order) => d.id === x.id,
         );
         const updateData = { ...itemToUpdate, ...x };
         this.orderBookL2[symbol][
@@ -265,12 +265,12 @@ export class Bybit extends Exchange {
       _.forEach(newData.data.delete, (x: Order) => {
         const itemToDelete = _.find(
           this.orderBookL2[symbol],
-          (d: Order) => d.id === x.id
+          (d: Order) => d.id === x.id,
         );
         if (itemToDelete) {
           this.orderBookL2[symbol] = _.without(
             this.orderBookL2[symbol],
-            itemToDelete
+            itemToDelete,
           );
           log.debug("Delete item:", newData.data.delete);
         }
@@ -282,18 +282,8 @@ export class Bybit extends Exchange {
     symbol: string,
     interval: number,
     delta: number,
-    params?: ccxt.Params
+    params?: ccxt.Params,
   ): number {
-    let before = {
-      side: "",
-      size: 0,
-      // deno-lint-ignore camelcase
-      entry_price: 0,
-      // deno-lint-ignore camelcase
-      take_profit: 0,
-      // deno-lint-ignore camelcase
-      stop_loss: 0,
-    };
     return setInterval(async () => {
       this.position = await this.fetchPositions([symbol], params);
       if (this.position.side === "None") return;
@@ -301,26 +291,6 @@ export class Bybit extends Exchange {
       const size = Number(this.position.size);
       // deno-lint-ignore camelcase
       const entry_price = Number(this.position.entry_price);
-      // deno-lint-ignore camelcase
-      const take_profit = Number(this.position.take_profit);
-      // deno-lint-ignore camelcase
-      const stop_loss = Number(this.position.stop_loss);
-      if (
-        before.side === side &&
-        before.size === size &&
-        before.entry_price === entry_price &&
-        before.take_profit === take_profit &&
-        before.stop_loss === stop_loss
-      ) {
-        return;
-      }
-      before = {
-        side,
-        size,
-        entry_price,
-        take_profit,
-        stop_loss,
-      };
       if (side === "Buy") {
         const minPrice = entry_price + delta;
         const ask = this.getBestPrices(this.orderBookL2[symbol]).ask;
@@ -342,7 +312,7 @@ export class Bybit extends Exchange {
   }
 
   getBestPrices(
-    orderBookL2: Order[]
+    orderBookL2: Order[],
   ): { ask: number; bid: number; spread: number } {
     const ask = _(orderBookL2)
       .filter((x: Order) => x.side === "Sell")
