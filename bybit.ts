@@ -328,10 +328,26 @@ export class Bybit extends Exchange {
     }
   }
 
+  async setTraidingStop(symbol: string, trailingStop: number): Promise<any> {
+    console.log("[setTraidingStop] Set TraidingStop:", {
+      trailingStop,
+    });
+    try {
+      const id = this.ec.market(symbol).id;
+      return await this.ec.v2PrivatePostPositionTradingStop({
+        symbol: id,
+        trailing_stop: trailingStop,
+      });
+    } catch (e) {
+      console.error({ e });
+    }
+  }
+
   closePositionInterval(
     symbol: string,
     interval: number,
     delta: number,
+    closeDelta: number,
     params?: ccxt.Params
   ): number {
     return setInterval(async () => {
@@ -344,10 +360,17 @@ export class Bybit extends Exchange {
       const size = Number(this.position.size);
       // deno-lint-ignore camelcase
       const entry_price = Number(this.position.entry_price);
+
       if (side === "Buy") {
         const minPrice = entry_price + delta;
         const ask = this.getBestPrices(this.orderBookL2[symbol]).ask;
         const price = Math.round(minPrice > ask ? minPrice : ask);
+
+        if (ask - entry_price > closeDelta) {
+          // Close position
+          await this.setTraidingStop(symbol, 5);
+          return;
+        }
 
         const fixedOrders = this.fixedOrders.filter(
           (x) =>
@@ -381,6 +404,12 @@ export class Bybit extends Exchange {
         const minPrice = entry_price - delta;
         const bid = this.getBestPrices(this.orderBookL2[symbol]).bid;
         const price = Math.round(minPrice < bid ? minPrice : bid);
+
+        if (entry_price - bid > closeDelta) {
+          // Close position
+          await this.setTraidingStop(symbol, 5);
+          return;
+        }
 
         const fixedOrders = this.fixedOrders.filter(
           (x) =>

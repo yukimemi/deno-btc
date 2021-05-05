@@ -12,7 +12,8 @@ const LEVERAGE = 100;
 const DELTA_PRICE = 5;
 const LOT = 0.01;
 const TAKE_PROFIT = 200;
-const STOP_LOSS = 100;
+const TAKE_PROFIT_CLOSE = 100;
+const STOP_LOSS = 200;
 const SPREAD_THRESHOLD = 10;
 const CANCEL_ORDER_DIFF = 1000 * 5;
 
@@ -38,7 +39,8 @@ const main = async () => {
   const closePositionTimer = ec.closePositionInterval(
     BTCUSD,
     CLOSE_POSITION_INTERVAL,
-    DELTA_PRICE
+    DELTA_PRICE,
+    TAKE_PROFIT_CLOSE
   );
 
   let timer = 0;
