@@ -9,7 +9,7 @@ const FETCH_BALANCE_INTERVAL = 60_000;
 const CANCEL_INTERVAL = 10_000;
 const CLOSE_POSITION_INTERVAL = 10_000;
 const LEVERAGE = 100;
-const DELTA_PRICE = 5;
+const CLOSE_DELTA_PRICE = 5;
 const LOT = 0.01;
 const TAKE_PROFIT = 200;
 const TAKE_PROFIT_CLOSE = 100;
@@ -39,7 +39,7 @@ const main = async () => {
   const closePositionTimer = ec.closePositionInterval(
     BTCUSD,
     CLOSE_POSITION_INTERVAL,
-    DELTA_PRICE,
+    CLOSE_DELTA_PRICE,
     TAKE_PROFIT_CLOSE
   );
 
@@ -84,8 +84,8 @@ const main = async () => {
             const take_profit = Math.round(prices.bid + TAKE_PROFIT);
             // deno-lint-ignore camelcase
             const stop_loss = Math.round(prices.bid - STOP_LOSS);
-            console.log("Buy:", { lot, price: prices.bid });
-            await ec.createLimitBuyOrder(BTCUSD, lot, prices.bid, {
+            console.log("Buy:", { lot, price: prices.ask });
+            await ec.createLimitBuyOrder(BTCUSD, lot, prices.ask, {
               time_in_force: "PostOnly",
               take_profit,
               stop_loss,
@@ -96,8 +96,8 @@ const main = async () => {
             const take_profit = Math.round(prices.ask - TAKE_PROFIT);
             // deno-lint-ignore camelcase
             const stop_loss = Math.round(prices.ask + STOP_LOSS);
-            console.log("Sell:", { lot, price: prices.ask });
-            await ec.createLimitSellOrder(BTCUSD, lot, prices.ask, {
+            console.log("Sell:", { lot, price: prices.bid });
+            await ec.createLimitSellOrder(BTCUSD, lot, prices.bid, {
               time_in_force: "PostOnly",
               take_profit,
               stop_loss,
@@ -111,7 +111,12 @@ const main = async () => {
     await ec.initWebsocket(wsUrl, wsApiKey, wsSecret);
     timer = ec.startHeartBeat(JSON.stringify({ op: "ping" }), 30_000);
     await ec.subscribeOrderBookL2_25(BTCUSD);
-    await ec.subscribePosition(BTCUSD, TAKE_PROFIT, STOP_LOSS, DELTA_PRICE);
+    await ec.subscribePosition(
+      BTCUSD,
+      TAKE_PROFIT,
+      STOP_LOSS,
+      CLOSE_DELTA_PRICE
+    );
   } catch (e) {
     console.error({ e });
     clearInterval(timer);
