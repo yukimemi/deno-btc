@@ -29,12 +29,12 @@ const main = async () => {
   const cancelTimer = ec.cancelOrderInterval(
     BTCUSD,
     CANCEL_INTERVAL,
-    CANCEL_ORDER_DIFF
+    CANCEL_ORDER_DIFF,
   );
   const closePositionTimer = ec.closePositionInterval(
     BTCUSD,
     CLOSE_POSITION_INTERVAL,
-    DELTA_PRICE
+    DELTA_PRICE,
   );
 
   let timer = 0;
@@ -68,11 +68,11 @@ const main = async () => {
           )
         ) {
           console.log({ prices });
-          beforePrices = prices;
           if (
             Math.abs(prices.ask - beforePrices.ask) >
-            Math.abs(prices.bid - beforePrices.bid)
+              Math.abs(prices.bid - beforePrices.bid)
           ) {
+            beforePrices = prices;
             // deno-lint-ignore camelcase
             const take_profit = Math.round(prices.bid + TAKE_PROFIT);
             // deno-lint-ignore camelcase
@@ -84,6 +84,7 @@ const main = async () => {
               stop_loss,
             });
           } else {
+            beforePrices = prices;
             // deno-lint-ignore camelcase
             const take_profit = Math.round(prices.ask - TAKE_PROFIT);
             // deno-lint-ignore camelcase
