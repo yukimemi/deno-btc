@@ -76,6 +76,15 @@ Deno.test("fetchOpenOrders #1", async () => {
   assert(orders.length >= 2);
 });
 
+Deno.test("fetchPositions #1", async () => {
+  await ec.createOrder(BTCUSD, "market", "buy", 1);
+  await delay(5000);
+  const positions = await ec.fetchPositions([BTCUSD], {
+    type: "inverse",
+  });
+  console.log({ positions });
+});
+
 Deno.test("fetchOHLCV #1", async () => {
   const times = 30;
   const since = ec.ec.milliseconds() - 1000 * 60 * times;

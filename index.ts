@@ -7,6 +7,7 @@ const BTCUSD = "BTC/USD";
 const CHANNEL = "#bybit-test";
 const FETCH_BALANCE_INTERVAL = 60_000;
 const CANCEL_INTERVAL = 10_000;
+const CLOSE_POSITION_INTERVAL = 10_000;
 const LEVERAGE = 1.5;
 const DELTA_PRICE = 5;
 const LOT = 0.01;
@@ -29,6 +30,11 @@ const main = async () => {
     BTCUSD,
     CANCEL_INTERVAL,
     CANCEL_ORDER_DIFF
+  );
+  const closePositionTimer = ec.closePositionInterval(
+    BTCUSD,
+    CLOSE_POSITION_INTERVAL,
+    DELTA_PRICE
   );
 
   let timer = 0;
@@ -103,6 +109,7 @@ const main = async () => {
     clearInterval(timer);
     clearInterval(logBalanceTimer);
     clearInterval(cancelTimer);
+    clearInterval(closePositionTimer);
     if (ec.ws.readyState !== WebSocket.CLOSED) {
       ec.ws.close();
     }

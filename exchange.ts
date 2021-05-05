@@ -245,6 +245,10 @@ export class Exchange {
     return await this.ec.fetchOpenOrders(symbol, since, limit, params);
   }
 
+  async fetchPositions(symbols: string[], params?: ccxt.Params): Promise<any> {
+    return await this.ec.fetchPositions(symbols, params);
+  }
+
   async createOrder(
     symbol: string,
     type: string,

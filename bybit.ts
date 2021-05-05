@@ -35,9 +35,9 @@ export class Bybit extends Exchange {
   public position = {
     side: "",
     size: 0,
-    entry_price: 0,
-    take_profit: 0,
-    stop_loss: 0,
+    entry_price: "",
+    take_profit: "",
+    stop_loss: "",
   };
 
   constructor(apiKey: string, secret: string, testnet: boolean = false) {
@@ -47,6 +47,56 @@ export class Bybit extends Exchange {
     if (testnet) {
       this.ec.urls.api = this.ec.urls.test;
     }
+  }
+
+  /*
+    {
+        id: 0,
+        position_idx: 0,
+        mode: 0,
+        user_id: 135272,
+        risk_id: 1,
+        symbol: "BTCUSD",
+        side: "None",
+        size: 0,
+        position_value: "0",
+        entry_price: "0",
+        is_isolated: false,
+        auto_add_margin: 1,
+        leverage: "100",
+        effective_leverage: "100",
+        position_margin: "0",
+        liq_price: "0",
+        bust_price: "0",
+        occ_closing_fee: "0",
+        occ_funding_fee: "0",
+        take_profit: "0",
+        stop_loss: "0",
+        trailing_stop: "0",
+        position_status: "Normal",
+        deleverage_indicator: 0,
+        oc_calc_data: '{"blq":5928,"blv":"0.10768782","slq":99,"slv":"0.00179616","bmp":55048.0082,"smp":55117.5842,"fc":-0...',
+        order_margin: "0.00123922",
+        wallet_balance: "0.18028934",
+        realised_pnl: "-0.00072911",
+        unrealised_pnl: 0,
+        cum_realised_pnl: "-0.3083305",
+        cross_seq: 3036038333,
+        position_seq: 0,
+        created_at: "2020-12-30T15:00:41.555466306Z",
+        updated_at: "2021-05-05T03:28:03.546127469Z",
+        tp_sl_mode: "Full"
+      }
+    }
+  */
+  async fetchPositions(symbols: string[], params?: ccxt.Params): Promise<any> {
+    await this.ec.loadMarkets();
+    const id = this.ec.market(symbols[0]).id;
+    const res = await this.ec.v2PrivateGetPositionList({
+      symbol: id,
+    });
+    this.position = JSON.parse(res).result;
+    return this.position;
   }
 
   async subscribeOrderBookL2_25(symbol: string) {
@@ -112,13 +162,17 @@ export class Bybit extends Exchange {
           stop_loss,
         };
         if (side === "Buy") {
-          const price = entry_price + delta;
+          const minPrice = entry_price + delta;
+          const ask = this.getBestPrices(this.orderBookL2[symbol]).ask;
+          const price = minPrice > ask ? minPrice : ask;
           console.log("[Position] Sell:", { size, price });
           await this.createLimitSellOrder(symbol, size, price, {
             time_in_force: "PostOnly",
           });
         } else {
-          const price = entry_price - delta;
+          const minPrice = entry_price - delta;
+          const bid = this.getBestPrices(this.orderBookL2[symbol]).bid;
+          const price = minPrice < bid ? minPrice : bid;
           console.log("[Position] Buy:", { size, price });
           await this.createLimitBuyOrder(symbol, size, price, {
             time_in_force: "PostOnly",
@@ -222,6 +276,69 @@ export class Bybit extends Exchange {
         }
       });
     }
+  }
+
+  closePositionInterval(
+    symbol: string,
+    interval: number,
+    delta: number,
+    params?: ccxt.Params
+  ): number {
+    let before = {
+      side: "",
+      size: 0,
+      // deno-lint-ignore camelcase
+      entry_price: 0,
+      // deno-lint-ignore camelcase
+      take_profit: 0,
+      // deno-lint-ignore camelcase
+      stop_loss: 0,
+    };
+    return setInterval(async () => {
+      this.position = await this.fetchPositions([symbol], params);
+      if (this.position.side === "None") return;
+      const side = this.position.side;
+      const size = Number(this.position.size);
+      // deno-lint-ignore camelcase
+      const entry_price = Number(this.position.entry_price);
+      // deno-lint-ignore camelcase
+      const take_profit = Number(this.position.take_profit);
+      // deno-lint-ignore camelcase
+      const stop_loss = Number(this.position.stop_loss);
+      if (
+        before.side === side &&
+        before.size === size &&
+        before.entry_price === entry_price &&
+        before.take_profit === take_profit &&
+        before.stop_loss === stop_loss
+      ) {
+        return;
+      }
+      before = {
+        side,
+        size,
+        entry_price,
+        take_profit,
+        stop_loss,
+      };
+      if (side === "Buy") {
+        const minPrice = entry_price + delta;
+        const ask = this.getBestPrices(this.orderBookL2[symbol]).ask;
+        const price = minPrice > ask ? minPrice : ask;
+        console.log("[closePositionInterval] Sell:", { size, price });
+        await this.createLimitSellOrder(symbol, size, price, {
+          time_in_force: "PostOnly",
+        });
+      } else {
+        const minPrice = entry_price - delta;
+        const bid = this.getBestPrices(this.orderBookL2[symbol]).bid;
+        const price = minPrice < bid ? minPrice : bid;
+        console.log("[closePositionInterval] Buy:", { size, price });
+        await this.createLimitBuyOrder(symbol, size, price, {
+          time_in_force: "PostOnly",
+        });
+      }
+    }, interval);
   }
 
   getBestPrices(
