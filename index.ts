@@ -8,7 +8,7 @@ const CHANNEL = "#bybit-test";
 const FETCH_BALANCE_INTERVAL = 60_000;
 const CANCEL_INTERVAL = 10_000;
 const CLOSE_POSITION_INTERVAL = 10_000;
-const LEVERAGE = 100;
+const LEVERAGE = 10;
 const CLOSE_DELTA_PRICE = 5;
 const LOT = 0.01;
 const TAKE_PROFIT = 200;
@@ -44,10 +44,10 @@ const main = async () => {
   );
 
   let timer = 0;
-  let lot = 0;
   try {
     await delay(5_000);
 
+    await ec.cancelAllOrders(BTCUSD);
     await ec.fetchBalance();
     let beforePrices = ec.getBestPrices(ec.orderBookL2[BTCUSD]);
     ec.onOpens.push((ev) => console.log("OPEN:", { ev }));
@@ -59,23 +59,28 @@ const main = async () => {
 
     await ec.loadMarkets();
     const id = ec.ec.market(BTCUSD).id;
+    let canOrder = 0;
+    setInterval(() => {
+      canOrder--;
+    }, 10_000);
     ec.onMessages.push(async (message) => {
       if (message.topic === `orderBookL2_25.${id}`) {
         const prices = ec.getBestPrices(ec.orderBookL2[BTCUSD]);
         log.debug({ prices });
         if (
-          prices.spread > SPREAD_THRESHOLD &&
-          !(
-            prices.ask === beforePrices.ask &&
-            prices.bid === beforePrices.bid &&
-            prices.spread === beforePrices.spread
-          )
+          prices.ask === beforePrices.ask &&
+          prices.bid === beforePrices.bid &&
+          prices.spread === beforePrices.spread
         ) {
+          return;
+        }
+        const price = (prices.ask + prices.bid) / 2;
+        const size = ec.balances.BTC.free * price;
+        const lot = Math.round(size * LOT * LEVERAGE);
+        ec.positionSizeMax = lot * 3;
+        if (prices.spread > SPREAD_THRESHOLD) {
           console.log({ prices });
-          const price = (prices.ask + prices.bid) / 2;
-          const size = ec.balances.BTC.free * price;
-          lot = Math.round(size * LOT * LEVERAGE);
-          ec.positionSizeMax = lot * 3;
+          canOrder--;
           if (
             Math.abs(prices.ask - beforePrices.ask) >
             Math.abs(prices.bid - beforePrices.bid)
@@ -110,6 +115,36 @@ const main = async () => {
               stop_loss,
             });
           }
+        } else {
+          if (canOrder > 3) {
+            return;
+          }
+          // Double order !
+          if (ec.canCreateOrder("Buy")) {
+            // deno-lint-ignore camelcase
+            const take_profit = Math.round(prices.bid + TAKE_PROFIT);
+            // deno-lint-ignore camelcase
+            const stop_loss = Math.round(prices.bid - STOP_LOSS);
+            console.log("Buy:", { lot, price: prices.bid });
+            ec.createLimitBuyOrder(BTCUSD, lot, prices.bid, {
+              time_in_force: "PostOnly",
+              take_profit,
+              stop_loss,
+            });
+          }
+          if (ec.canCreateOrder("Sell")) {
+            // deno-lint-ignore camelcase
+            const take_profit = Math.round(prices.ask - TAKE_PROFIT);
+            // deno-lint-ignore camelcase
+            const stop_loss = Math.round(prices.ask + STOP_LOSS);
+            console.log("Sell:", { lot, price: prices.ask });
+            ec.createLimitSellOrder(BTCUSD, lot, prices.ask, {
+              time_in_force: "PostOnly",
+              take_profit,
+              stop_loss,
+            });
+          }
+          canOrder++;
         }
         beforePrices = prices;
       }
