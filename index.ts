@@ -25,16 +25,20 @@ const wsSecret = Deno.env.get("BYBIT_WS_API_SECRET") ?? "";
 
 const main = async () => {
   const ec = new Bybit(apiKey, secret, testnet);
-  const logBalanceTimer = ec.logBalanceInterval("BTC", FETCH_BALANCE_INTERVAL);
+  const logBalanceTimer = ec.logBalanceInterval(
+    "BTC",
+    FETCH_BALANCE_INTERVAL,
+    CHANNEL
+  );
   const cancelTimer = ec.cancelOrderInterval(
     BTCUSD,
     CANCEL_INTERVAL,
-    CANCEL_ORDER_DIFF,
+    CANCEL_ORDER_DIFF
   );
   const closePositionTimer = ec.closePositionInterval(
     BTCUSD,
     CLOSE_POSITION_INTERVAL,
-    DELTA_PRICE,
+    DELTA_PRICE
   );
 
   let timer = 0;
@@ -70,7 +74,7 @@ const main = async () => {
           console.log({ prices });
           if (
             Math.abs(prices.ask - beforePrices.ask) >
-              Math.abs(prices.bid - beforePrices.bid)
+            Math.abs(prices.bid - beforePrices.bid)
           ) {
             beforePrices = prices;
             // deno-lint-ignore camelcase

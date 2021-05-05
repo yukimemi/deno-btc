@@ -4,6 +4,7 @@ import * as log from "https://deno.land/std/log/mod.ts";
 import { delay } from "https://deno.land/std/async/mod.ts";
 import { hmac } from "https://deno.land/x/crypto/hmac.ts";
 import { encodeToString } from "https://deno.land/x/std/encoding/hex.ts";
+import { postSlack } from "./mod.ts";
 
 export type Trend = "Bullish" | "Bearlish" | "None";
 
@@ -173,14 +174,24 @@ export class Exchange {
     return await this.ec.fetchTicker(symbol, params);
   }
 
-  async logBalance(symbol: string): Promise<void> {
+  async logBalance(symbol: string, slackChannel?: string): Promise<void> {
     const balance = await this.fetchBalance();
     console.log({ [symbol]: balance[symbol] });
+    if (slackChannel !== undefined) {
+      await postSlack(
+        slackChannel,
+        JSON.stringify({ [symbol]: balance[symbol] })
+      );
+    }
   }
 
-  logBalanceInterval(symbol: string, interval: number): number {
+  logBalanceInterval(
+    symbol: string,
+    interval: number,
+    slackChannel?: string
+  ): number {
     return setInterval(async () => {
-      await this.logBalance(symbol);
+      await this.logBalance(symbol, slackChannel);
     }, interval);
   }
 
