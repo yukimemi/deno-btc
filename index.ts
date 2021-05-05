@@ -8,13 +8,13 @@ const CHANNEL = "#bybit-test";
 const FETCH_BALANCE_INTERVAL = 60_000;
 const CANCEL_INTERVAL = 10_000;
 const CLOSE_POSITION_INTERVAL = 10_000;
-const LEVERAGE = 1.5;
+const LEVERAGE = 100;
 const DELTA_PRICE = 5;
 const LOT = 0.01;
 const TAKE_PROFIT = 200;
 const STOP_LOSS = 100;
 const SPREAD_THRESHOLD = 10;
-const CANCEL_ORDER_DIFF = 1000 * 10;
+const CANCEL_ORDER_DIFF = 1000 * 5;
 
 const apiKey = Deno.env.get("CCXT_API_KEY") ?? "";
 const secret = Deno.env.get("CCXT_API_SECRET") ?? "";
@@ -46,6 +46,7 @@ const main = async () => {
   try {
     await delay(5_000);
 
+    await ec.fetchBalance();
     let beforePrices = ec.getBestPrices(ec.orderBookL2[BTCUSD]);
     ec.onOpens.push((ev) => console.log("OPEN:", { ev }));
     ec.onCloses.push((ev) => console.log("CLOSE:", { ev }));
@@ -71,7 +72,7 @@ const main = async () => {
           console.log({ prices });
           const price = (prices.ask + prices.bid) / 2;
           const size = ec.balances.BTC.free * price;
-          lot = Math.round(size * LOT);
+          lot = Math.round(size * LOT * LEVERAGE);
           if (
             Math.abs(prices.ask - beforePrices.ask) >
             Math.abs(prices.bid - beforePrices.bid)
