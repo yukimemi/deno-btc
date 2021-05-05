@@ -109,7 +109,7 @@ export class Bybit extends Exchange {
       }
     });
     this.ws.send(
-      JSON.stringify({ op: "subscribe", args: [`orderBookL2_25.${id}`] }),
+      JSON.stringify({ op: "subscribe", args: [`orderBookL2_25.${id}`] })
     );
   }
 
@@ -117,7 +117,7 @@ export class Bybit extends Exchange {
     symbol: string,
     profit: number,
     loss: number,
-    delta: number,
+    delta: number
   ) {
     await this.ec.loadMarkets();
     const id = this.ec.market(symbol).id;
@@ -165,18 +165,60 @@ export class Bybit extends Exchange {
           const minPrice = entry_price + delta;
           const ask = this.getBestPrices(this.orderBookL2[symbol]).ask;
           const price = minPrice > ask ? minPrice : ask;
+
+          const fixedOrders = this.fixedOrders.filter(
+            (x) =>
+              x.symbol === symbol &&
+              x.side === "sell" &&
+              x.price === price &&
+              x.amount === size
+          );
+
+          if (fixedOrders.length > 0) {
+            console.log("Already ordered:", { side: "sell", price, size });
+            return;
+          } else {
+            this.fixedOrders.forEach(
+              async (x) => await this.cancelOrder(x.id, symbol)
+            );
+            this.fixedOrders = [];
+          }
+
           console.log("[Position] Sell:", { size, price });
-          await this.createLimitSellOrder(symbol, size, price, {
-            time_in_force: "PostOnly",
-          });
+          this.fixedOrders.push(
+            await this.createLimitSellOrder(symbol, size, price, {
+              time_in_force: "PostOnly",
+            })
+          );
         } else {
           const minPrice = entry_price - delta;
           const bid = this.getBestPrices(this.orderBookL2[symbol]).bid;
           const price = minPrice < bid ? minPrice : bid;
+
+          const fixedOrders = this.fixedOrders.filter(
+            (x) =>
+              x.symbol === symbol &&
+              x.side === "buy" &&
+              x.price === price &&
+              x.amount === size
+          );
+
+          if (fixedOrders.length > 0) {
+            console.log("Already ordered:", { side: "buy", price, size });
+            return;
+          } else {
+            this.fixedOrders.forEach(
+              async (x) => await this.cancelOrder(x.id, symbol)
+            );
+            this.fixedOrders = [];
+          }
+
           console.log("[Position] Buy:", { size, price });
-          await this.createLimitBuyOrder(symbol, size, price, {
-            time_in_force: "PostOnly",
-          });
+          this.fixedOrders.push(
+            await this.createLimitBuyOrder(symbol, size, price, {
+              time_in_force: "PostOnly",
+            })
+          );
         }
 
         {
@@ -184,13 +226,13 @@ export class Bybit extends Exchange {
           const take_profit = Math.round(
             this.position.side === "Buy"
               ? entry_price + profit
-              : entry_price - profit,
+              : entry_price - profit
           );
           // deno-lint-ignore camelcase
           const stop_loss = Math.round(
             this.position.side === "Buy"
               ? entry_price - loss
-              : entry_price + loss,
+              : entry_price + loss
           );
           if (
             Number(this.position.take_profit) !== take_profit ||
@@ -218,17 +260,17 @@ export class Bybit extends Exchange {
     symbol: string,
     newData:
       | {
-        type: "snapshot";
-        data: Order[];
-      }
+          type: "snapshot";
+          data: Order[];
+        }
       | {
-        type: "delta";
-        data: {
-          insert: Order[];
-          update: Order[];
-          delete: Order[];
-        };
-      },
+          type: "delta";
+          data: {
+            insert: Order[];
+            update: Order[];
+            delete: Order[];
+          };
+        }
   ) {
     // Snapshot.
     if (newData.type === "snapshot") {
@@ -252,7 +294,7 @@ export class Bybit extends Exchange {
       _.forEach(newData.data.update, (x: Order) => {
         const itemToUpdate = _.find(
           this.orderBookL2[symbol],
-          (d: Order) => d.id === x.id,
+          (d: Order) => d.id === x.id
         );
         const updateData = { ...itemToUpdate, ...x };
         this.orderBookL2[symbol][
@@ -265,12 +307,12 @@ export class Bybit extends Exchange {
       _.forEach(newData.data.delete, (x: Order) => {
         const itemToDelete = _.find(
           this.orderBookL2[symbol],
-          (d: Order) => d.id === x.id,
+          (d: Order) => d.id === x.id
         );
         if (itemToDelete) {
           this.orderBookL2[symbol] = _.without(
             this.orderBookL2[symbol],
-            itemToDelete,
+            itemToDelete
           );
           log.debug("Delete item:", newData.data.delete);
         }
@@ -282,7 +324,7 @@ export class Bybit extends Exchange {
     symbol: string,
     interval: number,
     delta: number,
-    params?: ccxt.Params,
+    params?: ccxt.Params
   ): number {
     return setInterval(async () => {
       this.position = await this.fetchPositions([symbol], params);
@@ -294,7 +336,26 @@ export class Bybit extends Exchange {
       if (side === "Buy") {
         const minPrice = entry_price + delta;
         const ask = this.getBestPrices(this.orderBookL2[symbol]).ask;
-        const price = minPrice > ask ? minPrice : ask;
+        const price = Math.round(minPrice > ask ? minPrice : ask);
+
+        const fixedOrders = this.fixedOrders.filter(
+          (x) =>
+            x.symbol === symbol &&
+            x.side === "sell" &&
+            x.price === price &&
+            x.amount === size
+        );
+
+        if (fixedOrders.length > 0) {
+          console.log("Already ordered:", { side: "sell", price, size });
+          return;
+        } else {
+          this.fixedOrders.forEach(
+            async (x) => await this.cancelOrder(x.id, symbol)
+          );
+          this.fixedOrders = [];
+        }
+
         console.log("[closePositionInterval] Sell:", { size, price });
         await this.createLimitSellOrder(symbol, size, price, {
           time_in_force: "PostOnly",
@@ -302,7 +363,26 @@ export class Bybit extends Exchange {
       } else {
         const minPrice = entry_price - delta;
         const bid = this.getBestPrices(this.orderBookL2[symbol]).bid;
-        const price = minPrice < bid ? minPrice : bid;
+        const price = Math.round(minPrice < bid ? minPrice : bid);
+
+        const fixedOrders = this.fixedOrders.filter(
+          (x) =>
+            x.symbol === symbol &&
+            x.side === "buy" &&
+            x.price === price &&
+            x.amount === size
+        );
+
+        if (fixedOrders.length > 0) {
+          console.log("Already ordered:", { side: "buy", price, size });
+          return;
+        } else {
+          this.fixedOrders.forEach(
+            async (x) => await this.cancelOrder(x.id, symbol)
+          );
+          this.fixedOrders = [];
+        }
+
         console.log("[closePositionInterval] Buy:", { size, price });
         await this.createLimitBuyOrder(symbol, size, price, {
           time_in_force: "PostOnly",
@@ -312,7 +392,7 @@ export class Bybit extends Exchange {
   }
 
   getBestPrices(
-    orderBookL2: Order[],
+    orderBookL2: Order[]
   ): { ask: number; bid: number; spread: number } {
     const ask = _(orderBookL2)
       .filter((x: Order) => x.side === "Sell")

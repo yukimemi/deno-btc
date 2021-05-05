@@ -27,6 +27,7 @@ export class Exchange {
     value: number[];
   } = { open: [], high: [], low: [], close: [], value: [] };
   public orders: ccxt.Order[] = [];
+  public fixedOrders: ccxt.Order[] = [];
 
   constructor(_apiKey: string, _secret: string) {}
 
@@ -376,6 +377,12 @@ export class Exchange {
             size: x.amount,
             price: x.price,
           });
+          const isFixed =
+            this.fixedOrders.filter((o) => o.id === x.id).length > 0;
+          if (isFixed) {
+            console.log(`order id: ${x.id} is fixed. so do not cancel.`);
+            return;
+          }
           await this.cancelOrder(x.id, symbol);
         }
       });
