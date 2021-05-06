@@ -98,7 +98,7 @@ const main = async () => {
             const price = prices.ask + ORDER_DELTA_PRICE;
             console.log("Buy:", { lot, price: price });
             await ec.createLimitBuyOrder(BTCUSD, lot, price, {
-              time_in_force: "GoodTillCancel",
+              time_in_force: "PostOnly",
               take_profit,
               stop_loss,
             });
@@ -114,7 +114,7 @@ const main = async () => {
             const price = prices.bid - ORDER_DELTA_PRICE;
             console.log("Sell:", { lot, price: price });
             await ec.createLimitSellOrder(BTCUSD, lot, price, {
-              time_in_force: "GoodTillCancel",
+              time_in_force: "PostOnly",
               take_profit,
               stop_loss,
             });
@@ -125,14 +125,26 @@ const main = async () => {
           }
           // Double order !
           if (ec.canCreateOrder("Buy")) {
-            console.log("Buy:", { lot, price: prices.bid });
-            ec.createLimitBuyOrder(BTCUSD, lot, prices.bid, {
+            const price =
+              ec.position.side === "Sell"
+                ? Number(ec.position.entry_price) > prices.bid
+                  ? prices.bid
+                  : Number(ec.position.entry_price)
+                : prices.bid;
+            console.log("Buy:", { lot, price: price });
+            ec.createLimitBuyOrder(BTCUSD, lot, price, {
               time_in_force: "PostOnly",
             });
           }
           if (ec.canCreateOrder("Sell")) {
-            console.log("Sell:", { lot, price: prices.ask });
-            ec.createLimitSellOrder(BTCUSD, lot, prices.ask, {
+            const price =
+              ec.position.side === "Buy"
+                ? Number(ec.position.entry_price) < prices.ask
+                  ? prices.ask
+                  : Number(ec.position.entry_price)
+                : prices.ask;
+            console.log("Sell:", { lot, price: price });
+            ec.createLimitSellOrder(BTCUSD, lot, price, {
               time_in_force: "PostOnly",
             });
           }
