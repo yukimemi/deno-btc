@@ -16,7 +16,7 @@ const TAKE_PROFIT_CLOSE = 100;
 const STOP_LOSS = 200;
 const SPREAD_THRESHOLD = 10;
 const CANCEL_ORDER_DIFF = 1000 * 5;
-const ORDER_DELTA_PRICE = 1;
+const ORDER_DELTA_PRICE = 0.5;
 const ORDER_LENGTH = 10;
 
 const apiKey = Deno.env.get("CCXT_API_KEY") ?? "";
@@ -98,7 +98,7 @@ const main = async () => {
             const price = prices.ask + ORDER_DELTA_PRICE;
             console.log("Buy:", { lot, price: price });
             await ec.createLimitBuyOrder(BTCUSD, lot, price, {
-              time_in_force: "PostOnly",
+              time_in_force: "GoodTillCancel",
               take_profit,
               stop_loss,
             });
@@ -114,7 +114,7 @@ const main = async () => {
             const price = prices.bid - ORDER_DELTA_PRICE;
             console.log("Sell:", { lot, price: price });
             await ec.createLimitSellOrder(BTCUSD, lot, price, {
-              time_in_force: "PostOnly",
+              time_in_force: "GoodTillCancel",
               take_profit,
               stop_loss,
             });
