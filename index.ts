@@ -8,7 +8,7 @@ const CHANNEL = "#bybit-test";
 const FETCH_BALANCE_INTERVAL = 60_000;
 const CANCEL_INTERVAL = 10_000;
 const CLOSE_POSITION_INTERVAL = 10_000;
-const LEVERAGE = 10;
+const LEVERAGE = 5;
 const CLOSE_DELTA_PRICE = 5;
 const LOT = 0.01;
 const TAKE_PROFIT = 200;
@@ -16,6 +16,8 @@ const TAKE_PROFIT_CLOSE = 100;
 const STOP_LOSS = 200;
 const SPREAD_THRESHOLD = 10;
 const CANCEL_ORDER_DIFF = 1000 * 5;
+const ORDER_DELTA_PRICE = 1;
+const ORDER_LENGTH = 10;
 
 const apiKey = Deno.env.get("CCXT_API_KEY") ?? "";
 const secret = Deno.env.get("CCXT_API_SECRET") ?? "";
@@ -59,10 +61,10 @@ const main = async () => {
 
     await ec.loadMarkets();
     const id = ec.ec.market(BTCUSD).id;
-    let canOrder = 100;
+    let canOrder = 0;
     setInterval(() => {
-      canOrder--;
-    }, 10_000);
+      if (canOrder > 0) canOrder--;
+    }, 1_000);
     ec.onMessages.push(async (message) => {
       if (message.topic === `orderBookL2_25.${id}`) {
         const prices = ec.getBestPrices(ec.orderBookL2[BTCUSD]);
@@ -77,10 +79,10 @@ const main = async () => {
         const price = (prices.ask + prices.bid) / 2;
         const size = ec.balances.BTC.free * price;
         const lot = Math.round(size * LOT * LEVERAGE);
-        ec.positionSizeMax = lot * 3;
+        ec.positionSizeMax = lot * ORDER_LENGTH;
         if (prices.spread > SPREAD_THRESHOLD) {
           console.log({ prices });
-          canOrder--;
+          canOrder = 30 + ORDER_LENGTH;
           if (
             Math.abs(prices.ask - beforePrices.ask) >
             Math.abs(prices.bid - beforePrices.bid)
@@ -93,8 +95,9 @@ const main = async () => {
             const take_profit = Math.round(prices.bid + TAKE_PROFIT);
             // deno-lint-ignore camelcase
             const stop_loss = Math.round(prices.bid - STOP_LOSS);
-            console.log("Buy:", { lot, price: prices.ask });
-            await ec.createLimitBuyOrder(BTCUSD, lot, prices.ask, {
+            const price = prices.ask + ORDER_DELTA_PRICE;
+            console.log("Buy:", { lot, price: price });
+            await ec.createLimitBuyOrder(BTCUSD, lot, price, {
               time_in_force: "PostOnly",
               take_profit,
               stop_loss,
@@ -108,41 +111,30 @@ const main = async () => {
             const take_profit = Math.round(prices.ask - TAKE_PROFIT);
             // deno-lint-ignore camelcase
             const stop_loss = Math.round(prices.ask + STOP_LOSS);
-            console.log("Sell:", { lot, price: prices.bid });
-            await ec.createLimitSellOrder(BTCUSD, lot, prices.bid, {
+            const price = prices.bid - ORDER_DELTA_PRICE;
+            console.log("Sell:", { lot, price: price });
+            await ec.createLimitSellOrder(BTCUSD, lot, price, {
               time_in_force: "PostOnly",
               take_profit,
               stop_loss,
             });
           }
         } else {
-          if (canOrder > 3) {
+          if (canOrder > ORDER_LENGTH) {
             return;
           }
           // Double order !
           if (ec.canCreateOrder("Buy")) {
-            // deno-lint-ignore camelcase
-            const take_profit = Math.round(prices.bid + TAKE_PROFIT);
-            // deno-lint-ignore camelcase
-            const stop_loss = Math.round(prices.bid - STOP_LOSS);
-            // console.log("Buy:", { lot, price: prices.bid });
-            // ec.createLimitBuyOrder(BTCUSD, lot, prices.bid, {
-            //   time_in_force: "PostOnly",
-            //   take_profit,
-            //   stop_loss,
-            // });
+            console.log("Buy:", { lot, price: prices.bid });
+            ec.createLimitBuyOrder(BTCUSD, lot, prices.bid, {
+              time_in_force: "PostOnly",
+            });
           }
           if (ec.canCreateOrder("Sell")) {
-            // deno-lint-ignore camelcase
-            const take_profit = Math.round(prices.ask - TAKE_PROFIT);
-            // deno-lint-ignore camelcase
-            const stop_loss = Math.round(prices.ask + STOP_LOSS);
-            // console.log("Sell:", { lot, price: prices.ask });
-            // ec.createLimitSellOrder(BTCUSD, lot, prices.ask, {
-            //   time_in_force: "PostOnly",
-            //   take_profit,
-            //   stop_loss,
-            // });
+            console.log("Sell:", { lot, price: prices.ask });
+            ec.createLimitSellOrder(BTCUSD, lot, prices.ask, {
+              time_in_force: "PostOnly",
+            });
           }
           canOrder++;
         }
