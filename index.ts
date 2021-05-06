@@ -64,7 +64,7 @@ const main = async () => {
     let canOrder = 0;
     setInterval(() => {
       if (canOrder > 0) canOrder--;
-    }, 1_000);
+    }, 1_500);
     ec.onMessages.push(async (message) => {
       if (message.topic === `orderBookL2_25.${id}`) {
         const prices = ec.getBestPrices(ec.orderBookL2[BTCUSD]);
@@ -82,7 +82,7 @@ const main = async () => {
         ec.positionSizeMax = lot * ORDER_LENGTH;
         if (prices.spread > SPREAD_THRESHOLD) {
           console.log({ prices });
-          canOrder = 30 + ORDER_LENGTH;
+          canOrder = 60 + ORDER_LENGTH;
           if (
             Math.abs(prices.ask - beforePrices.ask) >
             Math.abs(prices.bid - beforePrices.bid)
@@ -125,24 +125,26 @@ const main = async () => {
           }
           // Double order !
           if (ec.canCreateOrder("Buy")) {
-            const price =
+            const price = Math.round(
               ec.position.side === "Sell"
                 ? Number(ec.position.entry_price) > prices.bid
                   ? prices.bid
                   : Number(ec.position.entry_price)
-                : prices.bid;
+                : prices.bid
+            );
             console.log("Buy:", { lot, price: price });
             ec.createLimitBuyOrder(BTCUSD, lot, price, {
               time_in_force: "PostOnly",
             });
           }
           if (ec.canCreateOrder("Sell")) {
-            const price =
+            const price = Math.round(
               ec.position.side === "Buy"
                 ? Number(ec.position.entry_price) < prices.ask
                   ? prices.ask
                   : Number(ec.position.entry_price)
-                : prices.ask;
+                : prices.ask
+            );
             console.log("Sell:", { lot, price: price });
             ec.createLimitSellOrder(BTCUSD, lot, price, {
               time_in_force: "PostOnly",
