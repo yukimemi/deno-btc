@@ -283,20 +283,7 @@ export class Exchange {
       this.orders.push(order);
       return order;
     } catch (e) {
-      if (e instanceof ccxt.RateLimitExceeded) {
-        console.error(e);
-        await delay(10_000);
-        return await this.createOrder(
-          symbol,
-          type,
-          side,
-          amount,
-          price,
-          params
-        );
-      } else {
-        throw e;
-      }
+      throw e;
     }
   }
 
@@ -318,13 +305,7 @@ export class Exchange {
       this.orders.push(order);
       return order;
     } catch (e) {
-      if (e instanceof ccxt.RateLimitExceeded) {
-        console.error(e);
-        await delay(10_000);
-        return await this.createLimitOrder(symbol, side, amount, price, params);
-      } else {
-        throw e;
-      }
+      throw e;
     }
   }
 
@@ -344,13 +325,7 @@ export class Exchange {
       this.orders.push(order);
       return order;
     } catch (e) {
-      if (e instanceof ccxt.RateLimitExceeded) {
-        console.error(e);
-        await delay(10_000);
-        return await this.createLimitBuyOrder(symbol, amount, price, params);
-      } else {
-        throw e;
-      }
+      throw e;
     }
   }
 
@@ -370,13 +345,7 @@ export class Exchange {
       this.orders.push(order);
       return order;
     } catch (e) {
-      if (e instanceof ccxt.RateLimitExceeded) {
-        console.error(e);
-        await delay(10_000);
-        return await this.createLimitSellOrder(symbol, amount, price, params);
-      } else {
-        throw e;
-      }
+      throw e;
     }
   }
 
@@ -393,9 +362,6 @@ export class Exchange {
       if (e instanceof ccxt.OrderNotFound) {
         // ok.
         _.remove(this.orders, (x: ccxt.Order) => x.id);
-      } else if (e instanceof ccxt.RateLimitExceeded) {
-        console.error(e);
-        await delay(10_000);
       } else {
         throw e;
       }
