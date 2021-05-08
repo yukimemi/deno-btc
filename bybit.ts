@@ -116,6 +116,16 @@ export class Bybit extends Exchange {
     return true;
   }
 
+  async v2PrivatePostOrderCreate(
+    params: Record<string, number | boolean | string>
+  ): Promise<any> {
+    try {
+      return await this.ec.v2PrivatePostOrderCreate(params);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
   async subscribeOrderBookL2_25(symbol: string) {
     await this.ec.loadMarkets();
     const id = this.ec.market(symbol).id;
@@ -210,8 +220,14 @@ export class Bybit extends Exchange {
             price,
           });
           this.fixedOrders.push(
-            await this.createLimitSellOrder(symbol, size, price, {
+            await this.v2PrivatePostOrderCreate({
+              symbol: id,
+              side: "Sell",
+              order_type: "Limit",
+              qty: size,
+              price,
               time_in_force: "PostOnly",
+              reduce_only: true,
             })
           );
         } else {
@@ -246,8 +262,14 @@ export class Bybit extends Exchange {
             price,
           });
           this.fixedOrders.push(
-            await this.createLimitBuyOrder(symbol, size, price, {
+            await this.v2PrivatePostOrderCreate({
+              symbol: id,
+              side: "Buy",
+              order_type: "Limit",
+              qty: size,
+              price,
               time_in_force: "PostOnly",
+              reduce_only: true,
             })
           );
         }
@@ -374,6 +396,7 @@ export class Bybit extends Exchange {
     params?: ccxt.Params
   ): number {
     return setInterval(async () => {
+      const id = this.ec.market(symbol).id;
       this.position = await this.fetchPositions([symbol], params);
       if (this.position.side === "None") {
         this.fixedOrders = [];
@@ -384,6 +407,7 @@ export class Bybit extends Exchange {
       // deno-lint-ignore camelcase
       const entry_price = Number(this.position.entry_price);
 
+      console.log({ openOrders: this.openOrders });
       if (side === "Buy") {
         const minPrice = entry_price + delta;
         const ask = this.getBestPrices(this.orderBookL2[symbol]).ask;
@@ -419,8 +443,14 @@ export class Bybit extends Exchange {
 
         console.log("[closePositionInterval] Sell:", { size, price });
         this.fixedOrders.push(
-          await this.createLimitSellOrder(symbol, size, price, {
+          await this.v2PrivatePostOrderCreate({
+            symbol: id,
+            side: "Sell",
+            order_type: "Limit",
+            qty: size,
+            price,
             time_in_force: "PostOnly",
+            reduce_only: true,
           })
         );
       } else {
@@ -458,8 +488,14 @@ export class Bybit extends Exchange {
 
         console.log("[closePositionInterval] Buy:", { size, price });
         this.fixedOrders.push(
-          await this.createLimitBuyOrder(symbol, size, price, {
+          await this.v2PrivatePostOrderCreate({
+            symbol: id,
+            side: "Buy",
+            order_type: "Limit",
+            qty: size,
+            price,
             time_in_force: "PostOnly",
+            reduce_only: true,
           })
         );
       }

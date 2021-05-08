@@ -333,6 +333,7 @@ export class Exchange {
       this.orders.push(order);
       return order;
     } catch (e) {
+      console.error(e);
       throw e;
     }
   }
@@ -353,6 +354,7 @@ export class Exchange {
       this.orders.push(order);
       return order;
     } catch (e) {
+      console.error(e);
       throw e;
     }
   }
@@ -412,7 +414,7 @@ export class Exchange {
             size: x.amount,
             price: x.price,
           });
-          const fixedOrder = this.fixedOrders.filter((o) => o.id === x.id);
+          const fixedOrder = this.fixedOrders.filter((o) => o?.id === x?.id);
           if (fixedOrder.length > 0) {
             console.log(`order id: ${x.id} is fixed. so do not cancel.`);
             fixedOpenOrders.push(...fixedOrder);
