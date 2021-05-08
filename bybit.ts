@@ -1,8 +1,9 @@
-import _ from "https://cdn.skypack.dev/lodash";
 import * as ccxt from "https://esm.sh/ccxt";
 import * as log from "https://deno.land/std/log/mod.ts";
-import { delay } from "https://deno.land/std/async/mod.ts";
+import _ from "https://cdn.skypack.dev/lodash";
 import { Exchange } from "./exchange.ts";
+import { delay } from "https://deno.land/std/async/mod.ts";
+import { red, bold, underline } from "https://deno.land/std/fmt/colors.ts";
 
 export type Order = {
   id: number;
@@ -195,6 +196,7 @@ export class Bybit extends Exchange {
               side: "sell",
               price,
               size,
+              profit: Math.round(ask - entry_price),
             });
             return;
           }
@@ -203,7 +205,10 @@ export class Bybit extends Exchange {
           );
           this.fixedOrders = [];
 
-          console.log("[Position] Sell:", { size, price });
+          console.log(underline(bold(red("[Position] Sell:"))), {
+            size,
+            price,
+          });
           this.fixedOrders.push(
             await this.createLimitSellOrder(symbol, size, price, {
               time_in_force: "PostOnly",
@@ -227,6 +232,7 @@ export class Bybit extends Exchange {
               side: "buy",
               price,
               size,
+              profit: Math.round(entry_price - bid),
             });
             return;
           }
@@ -235,7 +241,10 @@ export class Bybit extends Exchange {
           );
           this.fixedOrders = [];
 
-          console.log("[Position] Buy:", { size, price });
+          console.log(underline(bold(red("[Position] Buy:"))), {
+            size,
+            price,
+          });
           this.fixedOrders.push(
             await this.createLimitBuyOrder(symbol, size, price, {
               time_in_force: "PostOnly",
@@ -399,6 +408,7 @@ export class Bybit extends Exchange {
             side: "sell",
             price,
             size,
+            profit: Math.round(ask - entry_price),
           });
           return;
         }
@@ -437,6 +447,7 @@ export class Bybit extends Exchange {
             side: "buy",
             price,
             size,
+            profit: Math.round(entry_price - bid),
           });
           return;
         }
