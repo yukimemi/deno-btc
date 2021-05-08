@@ -119,7 +119,7 @@ const main = async () => {
               stop_loss,
             });
           }
-        } else {
+        }/* else {
           if (canOrder > ORDER_LENGTH) {
             return;
           }
@@ -151,7 +151,7 @@ const main = async () => {
             });
           }
           canOrder++;
-        }
+        }*/
         beforePrices = prices;
       }
     });
