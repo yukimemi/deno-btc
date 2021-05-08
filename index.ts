@@ -1,4 +1,5 @@
 import * as log from "https://deno.land/std/log/mod.ts";
+import { Lock } from "https://deno.land/x/async@v1.1/mod.ts";
 import { Bybit } from "./bybit.ts";
 import { delay } from "https://deno.land/std/async/mod.ts";
 
@@ -7,13 +8,14 @@ const CHANNEL = "#bybit-test";
 const FETCH_BALANCE_INTERVAL = 60_000;
 const CANCEL_INTERVAL = 10_000;
 const CLOSE_POSITION_INTERVAL = 10_000;
-const LEVERAGE = 50;
-const CLOSE_DELTA_PRICE = 30;
+const LEVERAGE = 20;
+const CLOSE_DELTA_PRICE = 50;
 const LOT = 0.01;
 const TAKE_PROFIT = 200;
 const TAKE_PROFIT_CLOSE = 100;
-const STOP_LOSS = 200;
-const SPREAD_THRESHOLD = 30.0;
+const STOP_LOSS = 500;
+const SPREAD_THRESHOLD_MIN = 10;
+const SPREAD_THRESHOLD_MAX = 50;
 const CANCEL_ORDER_DIFF = 2_000;
 const ORDER_DELTA_PRICE = 0.5;
 const ORDER_LENGTH_MAX = 10;
@@ -24,24 +26,25 @@ const testnet = !!Deno.env.get("TESTNET") ?? false;
 const wsUrl = Deno.env.get("BYBIT_WS_URL") ?? "";
 const wsApiKey = Deno.env.get("BYBIT_WS_API_KEY") ?? "";
 const wsSecret = Deno.env.get("BYBIT_WS_API_SECRET") ?? "";
+const lock = new Lock();
 
 const main = async () => {
   const ec = new Bybit(apiKey, secret, testnet);
   const logBalanceTimer = ec.logBalanceInterval(
     "BTC",
     FETCH_BALANCE_INTERVAL,
-    CHANNEL,
+    CHANNEL
   );
   const cancelTimer = ec.cancelOrderInterval(
     BTCUSD,
     CANCEL_INTERVAL,
-    CANCEL_ORDER_DIFF,
+    CANCEL_ORDER_DIFF
   );
   const closePositionTimer = ec.closePositionInterval(
     BTCUSD,
     CLOSE_POSITION_INTERVAL,
     CLOSE_DELTA_PRICE,
-    TAKE_PROFIT_CLOSE,
+    TAKE_PROFIT_CLOSE
   );
 
   let timer = 0;
@@ -60,47 +63,92 @@ const main = async () => {
     await ec.loadMarkets();
     const id = ec.ec.market(BTCUSD).id;
     let beforePrices = ec.getBestPrices(ec.orderBookL2[BTCUSD]);
+    let orderStop = false;
     ec.onMessages.push(async (message) => {
       if (message.topic === `orderBookL2_25.${id}`) {
-        const prices = ec.getBestPrices(ec.orderBookL2[BTCUSD]);
-        log.debug({ prices });
-        const price = (prices.ask + prices.bid) / 2;
-        const size = ec.balances.BTC.free * price;
-        const lot = Math.round(size * LOT * LEVERAGE);
-        ec.positionSizeMax = lot * ORDER_LENGTH_MAX;
-        if (
-          (prices.ask === beforePrices.ask &&
-            prices.bid === beforePrices.bid &&
-            prices.spread === beforePrices.spread) ||
-          prices.spread < SPREAD_THRESHOLD
-        ) {
-          beforePrices = prices;
-          return;
-        }
-        if (
-          Math.abs(prices.ask - beforePrices.ask) >
+        await lock.with(async () => {
+          const prices = ec.getBestPrices(ec.orderBookL2[BTCUSD]);
+          log.debug({ prices });
+          const price = (prices.ask + prices.bid) / 2;
+          const size = ec.balances.BTC.free * price;
+          const lot = Math.round(size * LOT * LEVERAGE);
+          ec.positionSizeMax = lot * ORDER_LENGTH_MAX;
+          if (
+            (prices.ask === beforePrices.ask &&
+              prices.bid === beforePrices.bid &&
+              prices.spread === beforePrices.spread) ||
+            prices.spread < SPREAD_THRESHOLD_MIN ||
+            orderStop
+          ) {
+            return;
+          }
+          if (prices.spread > SPREAD_THRESHOLD_MAX) {
+            beforePrices = prices;
+            orderStop = true;
+            console.log("Wait 30 s", { prices });
+            setTimeout(() => {
+              orderStop = false;
+            }, 30_000);
+            return;
+          }
+          if (
+            Math.abs(prices.ask - beforePrices.ask) >
             Math.abs(prices.bid - beforePrices.bid)
-        ) {
-          beforePrices = prices;
-          console.log("Bullish", { prices });
-          if (!ec.canCreateOrder("Buy")) {
-            return;
+          ) {
+            console.log("Bullish", { prices });
+            if (!ec.canCreateOrder("Buy")) {
+              return;
+            }
+            const price = Math.round(prices.ask - ORDER_DELTA_PRICE);
+            console.log("Buy:", { lot, price: price });
+            await ec.createLimitBuyOrder(BTCUSD, lot, price, {
+              time_in_force: "PostOnly",
+            });
+          } else {
+            console.log("Bearrish", { prices });
+            if (!ec.canCreateOrder("Sell")) {
+              return;
+            }
+            const price = Math.round(prices.bid + ORDER_DELTA_PRICE);
+            console.log("Sell:", { lot, price: price });
+            await ec.createLimitSellOrder(BTCUSD, lot, price, {
+              time_in_force: "PostOnly",
+            });
           }
-          const price = Math.round(prices.ask - ORDER_DELTA_PRICE);
-          console.log("Buy:", { lot, price: price });
-          await ec.createLimitBuyOrder(BTCUSD, lot, price, {
-            time_in_force: "ImmediateOrCancel",
-          });
-        } else {
           beforePrices = prices;
-          console.log("Bearrish", { prices });
-          if (!ec.canCreateOrder("Sell")) {
-            return;
-          }
-          const price = Math.round(prices.bid + ORDER_DELTA_PRICE);
-          console.log("Sell:", { lot, price: price });
-          await ec.createLimitSellOrder(BTCUSD, lot, price, {
-            time_in_force: "ImmediateOrCancel",
+        });
+      }
+    });
+
+    ec.onMessages.push((message) => {
+      if (message.topic === "order") {
+        log.debug("Receive message: ", { message });
+        const order = message.data[0];
+        if (order.reduce_only) {
+          ec.fixedOrders.push({
+            id: order.order_id,
+            clientOrderId: "",
+            datetime: order.timestamp,
+            timestamp: 0,
+            lastTradeTimestamp: 0,
+            status: "open",
+            symbol: BTCUSD,
+            type: order.order_type,
+            timeInForce: order.time_in_force,
+            side: order.side === "Buy" ? "buy" : "sell",
+            price: Number(order.price),
+            amount: Number(order.qty),
+            filled: 0,
+            remaining: 0,
+            cost: 0,
+            trades: [],
+            fee: {
+              type: "taker",
+              currency: "",
+              rate: 0,
+              cost: 0,
+            },
+            info: {},
           });
         }
       }
@@ -113,8 +161,9 @@ const main = async () => {
       BTCUSD,
       TAKE_PROFIT,
       STOP_LOSS,
-      CLOSE_DELTA_PRICE,
+      CLOSE_DELTA_PRICE
     );
+    ec.ws.send(JSON.stringify({ op: "subscribe", args: ["order"] }));
   } catch (e) {
     console.error({ e });
     clearInterval(timer);

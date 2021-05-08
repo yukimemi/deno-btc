@@ -195,10 +195,10 @@ export class Bybit extends Exchange {
 
           const fixedOrders = this.fixedOrders.filter(
             (x) =>
-              x.symbol === symbol &&
-              x.side === "sell" &&
-              x.price === price &&
-              x.amount === size
+              x?.symbol === symbol &&
+              x?.side === "sell" &&
+              x?.price === price &&
+              x?.amount === size
           );
 
           if (fixedOrders.length > 0) {
@@ -220,15 +220,18 @@ export class Bybit extends Exchange {
             price,
           });
           this.fixedOrders.push(
-            await this.v2PrivatePostOrderCreate({
-              symbol: id,
-              side: "Sell",
-              order_type: "Limit",
-              qty: size,
-              price,
+            await this.createLimitSellOrder(symbol, size, price, {
               time_in_force: "PostOnly",
-              reduce_only: true,
             })
+            // await this.v2PrivatePostOrderCreate({
+            //   symbol: id,
+            //   side: "Sell",
+            //   order_type: "Limit",
+            //   qty: size,
+            //   price,
+            //   time_in_force: "PostOnly",
+            //   reduce_only: true,
+            // })
           );
         } else {
           const minPrice = entry_price - delta;
@@ -237,10 +240,10 @@ export class Bybit extends Exchange {
 
           const fixedOrders = this.fixedOrders.filter(
             (x) =>
-              x.symbol === symbol &&
-              x.side === "buy" &&
-              x.price === price &&
-              x.amount === size
+              x?.symbol === symbol &&
+              x?.side === "buy" &&
+              x?.price === price &&
+              x?.amount === size
           );
 
           if (fixedOrders.length > 0) {
@@ -253,7 +256,7 @@ export class Bybit extends Exchange {
             return;
           }
           this.fixedOrders.forEach(
-            async (x) => await this.cancelOrder(x.id, symbol)
+            async (x) => await this.cancelOrder(x?.id, symbol)
           );
           this.fixedOrders = [];
 
@@ -262,15 +265,18 @@ export class Bybit extends Exchange {
             price,
           });
           this.fixedOrders.push(
-            await this.v2PrivatePostOrderCreate({
-              symbol: id,
-              side: "Buy",
-              order_type: "Limit",
-              qty: size,
-              price,
+            await this.createLimitBuyOrder(symbol, size, price, {
               time_in_force: "PostOnly",
-              reduce_only: true,
             })
+            // await this.v2PrivatePostOrderCreate({
+            //   symbol: id,
+            //   side: "Buy",
+            //   order_type: "Limit",
+            //   qty: size,
+            //   price,
+            //   time_in_force: "PostOnly",
+            //   reduce_only: true,
+            // })
           );
         }
 
@@ -407,7 +413,7 @@ export class Bybit extends Exchange {
       // deno-lint-ignore camelcase
       const entry_price = Number(this.position.entry_price);
 
-      console.log({ openOrders: this.openOrders });
+      log.debug({ openOrders: this.openOrders });
       if (side === "Buy") {
         const minPrice = entry_price + delta;
         const ask = this.getBestPrices(this.orderBookL2[symbol]).ask;
@@ -421,10 +427,10 @@ export class Bybit extends Exchange {
 
         const fixedOrders = this.fixedOrders.filter(
           (x) =>
-            x.symbol === symbol &&
-            x.side === "sell" &&
-            x.price === price &&
-            x.amount === size
+            x?.symbol === symbol &&
+            x?.side === "sell" &&
+            x?.price === price &&
+            x?.amount === size
         );
 
         if (fixedOrders.length > 0) {
@@ -437,21 +443,24 @@ export class Bybit extends Exchange {
           return;
         }
         this.fixedOrders.forEach(
-          async (x) => await this.cancelOrder(x.id, symbol)
+          async (x) => await this.cancelOrder(x?.id, symbol)
         );
         this.fixedOrders = [];
 
         console.log("[closePositionInterval] Sell:", { size, price });
         this.fixedOrders.push(
-          await this.v2PrivatePostOrderCreate({
-            symbol: id,
-            side: "Sell",
-            order_type: "Limit",
-            qty: size,
-            price,
+          await this.createLimitSellOrder(symbol, size, price, {
             time_in_force: "PostOnly",
-            reduce_only: true,
           })
+          // await this.v2PrivatePostOrderCreate({
+          //   symbol: id,
+          //   side: "Sell",
+          //   order_type: "Limit",
+          //   qty: size,
+          //   price,
+          //   time_in_force: "PostOnly",
+          //   reduce_only: true,
+          // })
         );
       } else {
         const minPrice = entry_price - delta;
@@ -488,15 +497,18 @@ export class Bybit extends Exchange {
 
         console.log("[closePositionInterval] Buy:", { size, price });
         this.fixedOrders.push(
-          await this.v2PrivatePostOrderCreate({
-            symbol: id,
-            side: "Buy",
-            order_type: "Limit",
-            qty: size,
-            price,
+          await this.createLimitBuyOrder(symbol, size, price, {
             time_in_force: "PostOnly",
-            reduce_only: true,
           })
+          // await this.v2PrivatePostOrderCreate({
+          //   symbol: id,
+          //   side: "Buy",
+          //   order_type: "Limit",
+          //   qty: size,
+          //   price,
+          //   time_in_force: "PostOnly",
+          //   reduce_only: true,
+          // })
         );
       }
     }, interval);

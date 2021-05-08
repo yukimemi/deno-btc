@@ -424,7 +424,7 @@ export class Exchange {
         }
       });
       this.fixedOrders = this.fixedOrders.filter((x) =>
-        fixedOpenOrders.some((y) => y.id === x.id)
+        fixedOpenOrders.some((y) => y?.id === x?.id)
       );
     }, interval);
   }
