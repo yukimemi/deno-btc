@@ -8,15 +8,15 @@ const CHANNEL = "#bybit-test";
 const FETCH_BALANCE_INTERVAL = 60_000;
 const CANCEL_INTERVAL = 10_000;
 const CLOSE_POSITION_INTERVAL = 10_000;
-const LEVERAGE = 5;
+const LEVERAGE = 20;
 const CLOSE_DELTA_PRICE = 50;
 const LOT = 0.01;
 const TAKE_PROFIT = 200;
 const TAKE_PROFIT_CLOSE = 100;
 const STOP_LOSS = 200;
-const SPREAD_THRESHOLD = 10;
+const SPREAD_THRESHOLD = 15;
 const CANCEL_ORDER_DIFF = 1000 * 5;
-const ORDER_DELTA_PRICE = 0.5;
+const ORDER_DELTA_PRICE = 1.0;
 const ORDER_LENGTH = 10;
 
 const apiKey = Deno.env.get("CCXT_API_KEY") ?? "";
@@ -81,12 +81,12 @@ const main = async () => {
         const lot = Math.round(size * LOT * LEVERAGE);
         ec.positionSizeMax = lot * ORDER_LENGTH;
         if (prices.spread > SPREAD_THRESHOLD) {
-          console.log({ prices });
           canOrder = 60 + ORDER_LENGTH;
           if (
             Math.abs(prices.ask - beforePrices.ask) >
             Math.abs(prices.bid - beforePrices.bid)
           ) {
+            console.log("Bullish", { prices });
             beforePrices = prices;
             if (!ec.canCreateOrder("Buy")) {
               return;
@@ -95,7 +95,7 @@ const main = async () => {
             const take_profit = Math.round(prices.bid + TAKE_PROFIT);
             // deno-lint-ignore camelcase
             const stop_loss = Math.round(prices.bid - STOP_LOSS);
-            const price = prices.ask + ORDER_DELTA_PRICE;
+            const price = prices.ask - ORDER_DELTA_PRICE;
             console.log("Buy:", { lot, price: price });
             await ec.createLimitBuyOrder(BTCUSD, lot, price, {
               time_in_force: "PostOnly",
@@ -103,6 +103,7 @@ const main = async () => {
               stop_loss,
             });
           } else {
+            console.log("Bearrish", { prices });
             beforePrices = prices;
             if (!ec.canCreateOrder("Sell")) {
               return;
@@ -111,7 +112,7 @@ const main = async () => {
             const take_profit = Math.round(prices.ask - TAKE_PROFIT);
             // deno-lint-ignore camelcase
             const stop_loss = Math.round(prices.ask + STOP_LOSS);
-            const price = prices.bid - ORDER_DELTA_PRICE;
+            const price = prices.bid + ORDER_DELTA_PRICE;
             console.log("Sell:", { lot, price: price });
             await ec.createLimitSellOrder(BTCUSD, lot, price, {
               time_in_force: "PostOnly",
@@ -119,7 +120,7 @@ const main = async () => {
               stop_loss,
             });
           }
-        }/* else {
+        } /* else {
           if (canOrder > ORDER_LENGTH) {
             return;
           }
