@@ -29,6 +29,7 @@ export class Exchange {
     value: number[];
   } = { open: [], high: [], low: [], close: [], value: [] };
   public orders: ccxt.Order[] = [];
+  public openOrders: ccxt.Order[] = [];
   public fixedOrders: ccxt.Order[] = [];
 
   constructor(_apiKey: string, _secret: string) {}
@@ -247,7 +248,8 @@ export class Exchange {
     limit?: number,
     params?: ccxt.Params
   ): Promise<ccxt.Order[]> {
-    return await this.ec.fetchOrders(symbol, since, limit, params);
+    this.orders = await this.ec.fetchOrders(symbol, since, limit, params);
+    return this.orders;
   }
 
   async fetchOpenOrders(
@@ -256,7 +258,13 @@ export class Exchange {
     limit?: number,
     params?: ccxt.Params
   ): Promise<ccxt.Order[]> {
-    return await this.ec.fetchOpenOrders(symbol, since, limit, params);
+    this.openOrders = await this.ec.fetchOpenOrders(
+      symbol,
+      since,
+      limit,
+      params
+    );
+    return this.openOrders;
   }
 
   async fetchPositions(symbols: string[], params?: ccxt.Params): Promise<any> {
