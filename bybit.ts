@@ -419,6 +419,13 @@ export class Bybit extends Exchange {
         const ask = this.getBestPrices(this.orderBookL2[symbol]).ask;
         const price = Math.round(minPrice > ask ? minPrice : ask);
 
+        console.log("[closePositionInterval]", {
+          side: "sell",
+          price,
+          size,
+          profit: Math.round(ask - entry_price),
+        });
+
         if (ask - entry_price > closeDelta) {
           // Close position
           await this.setTraidingStop(symbol, 5);
@@ -434,12 +441,6 @@ export class Bybit extends Exchange {
         );
 
         if (fixedOrders.length > 0) {
-          console.log("[closePositionInterval] Already ordered:", {
-            side: "sell",
-            price,
-            size,
-            profit: Math.round(ask - entry_price),
-          });
           return;
         }
         this.fixedOrders.forEach(
@@ -467,6 +468,13 @@ export class Bybit extends Exchange {
         const bid = this.getBestPrices(this.orderBookL2[symbol]).bid;
         const price = Math.round(minPrice < bid ? minPrice : bid);
 
+        console.log("[closePositionInterval]", {
+          side: "buy",
+          price,
+          size,
+          profit: Math.round(entry_price - bid),
+        });
+
         if (entry_price - bid > closeDelta) {
           // Close position
           await this.setTraidingStop(symbol, 5);
@@ -482,12 +490,6 @@ export class Bybit extends Exchange {
         );
 
         if (fixedOrders.length > 0) {
-          console.log("[closePositionInterval] Already ordered:", {
-            side: "buy",
-            price,
-            size,
-            profit: Math.round(entry_price - bid),
-          });
           return;
         }
         this.fixedOrders.forEach(

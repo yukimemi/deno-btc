@@ -1,4 +1,5 @@
 import * as log from "https://deno.land/std/log/mod.ts";
+import _ from "https://cdn.skypack.dev/lodash";
 import { Lock } from "https://deno.land/x/async@v1.1/mod.ts";
 import { Bybit } from "./bybit.ts";
 import { delay } from "https://deno.land/std/async/mod.ts";
@@ -8,16 +9,16 @@ const CHANNEL = "#bybit-test";
 const FETCH_BALANCE_INTERVAL = 60_000;
 const CANCEL_INTERVAL = 10_000;
 const CLOSE_POSITION_INTERVAL = 10_000;
-const LEVERAGE = 20;
+const LEVERAGE = 10;
 const CLOSE_DELTA_PRICE = 50;
 const LOT = 0.01;
 const TAKE_PROFIT = 200;
 const TAKE_PROFIT_CLOSE = 100;
 const STOP_LOSS = 500;
-const SPREAD_THRESHOLD_MIN = 10;
+const SPREAD_THRESHOLD_MIN = 1.0;
 const SPREAD_THRESHOLD_MAX = 50;
 const CANCEL_ORDER_DIFF = 2_000;
-const ORDER_DELTA_PRICE = 0.5;
+const ORDER_DELTA_PRICE = 0.0;
 const ORDER_LENGTH_MAX = 10;
 
 const apiKey = Deno.env.get("CCXT_API_KEY") ?? "";
@@ -33,18 +34,18 @@ const main = async () => {
   const logBalanceTimer = ec.logBalanceInterval(
     "BTC",
     FETCH_BALANCE_INTERVAL,
-    CHANNEL
+    CHANNEL,
   );
   const cancelTimer = ec.cancelOrderInterval(
     BTCUSD,
     CANCEL_INTERVAL,
-    CANCEL_ORDER_DIFF
+    CANCEL_ORDER_DIFF,
   );
   const closePositionTimer = ec.closePositionInterval(
     BTCUSD,
     CLOSE_POSITION_INTERVAL,
     CLOSE_DELTA_PRICE,
-    TAKE_PROFIT_CLOSE
+    TAKE_PROFIT_CLOSE,
   );
 
   let timer = 0;
@@ -64,6 +65,7 @@ const main = async () => {
     const id = ec.ec.market(BTCUSD).id;
     let beforePrices = ec.getBestPrices(ec.orderBookL2[BTCUSD]);
     let orderStop = false;
+    let orderCnt = 0;
     ec.onMessages.push(async (message) => {
       if (message.topic === `orderBookL2_25.${id}`) {
         await lock.with(async () => {
@@ -73,48 +75,49 @@ const main = async () => {
           const size = ec.balances.BTC.free * price;
           const lot = Math.round(size * LOT * LEVERAGE);
           ec.positionSizeMax = lot * ORDER_LENGTH_MAX;
+          orderCnt = ec.openOrders.length;
           if (
             (prices.ask === beforePrices.ask &&
               prices.bid === beforePrices.bid &&
               prices.spread === beforePrices.spread) ||
-            prices.spread < SPREAD_THRESHOLD_MIN ||
-            orderStop
+            orderStop ||
+            orderCnt > ORDER_LENGTH_MAX
           ) {
             return;
           }
-          if (prices.spread > SPREAD_THRESHOLD_MAX) {
+          if (prices.spread > SPREAD_THRESHOLD_MIN) {
             beforePrices = prices;
             orderStop = true;
-            console.log("Wait 30 s", { prices });
+            console.log("Wait 3 s", { prices });
             setTimeout(() => {
               orderStop = false;
-            }, 30_000);
+            }, 3_000);
             return;
           }
-          if (
-            Math.abs(prices.ask - beforePrices.ask) >
-            Math.abs(prices.bid - beforePrices.bid)
-          ) {
-            console.log("Bullish", { prices });
-            if (!ec.canCreateOrder("Buy")) {
-              return;
-            }
-            const price = Math.round(prices.ask - ORDER_DELTA_PRICE);
+          // if (
+          //   Math.abs(prices.ask - beforePrices.ask) >
+          //   Math.abs(prices.bid - beforePrices.bid)
+          // ) {
+          // console.log("Bullish", { prices });
+          if (ec.canCreateOrder("Buy")) {
+            const price = _.round(prices.bid + ORDER_DELTA_PRICE, 1);
             console.log("Buy:", { lot, price: price });
-            await ec.createLimitBuyOrder(BTCUSD, lot, price, {
+            ec.createLimitBuyOrder(BTCUSD, lot, price, {
               time_in_force: "PostOnly",
             });
-          } else {
-            console.log("Bearrish", { prices });
-            if (!ec.canCreateOrder("Sell")) {
-              return;
-            }
-            const price = Math.round(prices.bid + ORDER_DELTA_PRICE);
-            console.log("Sell:", { lot, price: price });
-            await ec.createLimitSellOrder(BTCUSD, lot, price, {
-              time_in_force: "PostOnly",
-            });
+            orderCnt++;
           }
+          // } else {
+          // console.log("Bearrish", { prices });
+          if (ec.canCreateOrder("Sell")) {
+            const price = _.round(prices.ask - ORDER_DELTA_PRICE, 1);
+            console.log("Sell:", { lot, price: price });
+            ec.createLimitSellOrder(BTCUSD, lot, price, {
+              time_in_force: "PostOnly",
+            });
+            orderCnt++;
+          }
+          // }
           beforePrices = prices;
         });
       }
@@ -150,6 +153,13 @@ const main = async () => {
             },
             info: {},
           });
+        } else if (ec.fixedOrders.some((x) => x.id === order.order_id)) {
+          return;
+        } else {
+          setTimeout(async () => {
+            await ec.cancelOrder(order.order_id, BTCUSD);
+            orderCnt--;
+          }, 1_000);
         }
       }
     });
@@ -161,7 +171,7 @@ const main = async () => {
       BTCUSD,
       TAKE_PROFIT,
       STOP_LOSS,
-      CLOSE_DELTA_PRICE
+      CLOSE_DELTA_PRICE,
     );
     ec.ws.send(JSON.stringify({ op: "subscribe", args: ["order"] }));
   } catch (e) {
