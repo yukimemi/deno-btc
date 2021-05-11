@@ -19,7 +19,7 @@ const SPREAD_THRESHOLD_MIN = 1.0;
 const SPREAD_THRESHOLD_MAX = 50;
 const CANCEL_ORDER_DIFF = 2_000;
 const ORDER_DELTA_PRICE = 0.0;
-const ORDER_LENGTH_MAX = 10;
+const ORDER_LENGTH_MAX = 2;
 
 const apiKey = Deno.env.get("CCXT_API_KEY") ?? "";
 const secret = Deno.env.get("CCXT_API_SECRET") ?? "";
@@ -34,18 +34,18 @@ const main = async () => {
   const logBalanceTimer = ec.logBalanceInterval(
     "BTC",
     FETCH_BALANCE_INTERVAL,
-    CHANNEL,
+    CHANNEL
   );
   const cancelTimer = ec.cancelOrderInterval(
     BTCUSD,
     CANCEL_INTERVAL,
-    CANCEL_ORDER_DIFF,
+    CANCEL_ORDER_DIFF
   );
   const closePositionTimer = ec.closePositionInterval(
     BTCUSD,
     CLOSE_POSITION_INTERVAL,
     CLOSE_DELTA_PRICE,
-    TAKE_PROFIT_CLOSE,
+    TAKE_PROFIT_CLOSE
   );
 
   let timer = 0;
@@ -64,11 +64,13 @@ const main = async () => {
     await ec.loadMarkets();
     const id = ec.ec.market(BTCUSD).id;
     let beforePrices = ec.getBestPrices(ec.orderBookL2[BTCUSD]);
+    let preOrderStop = false;
     let orderStop = false;
+    let orderMaxStop = false;
     let orderCnt = 0;
     ec.onMessages.push(async (message) => {
       if (message.topic === `orderBookL2_25.${id}`) {
-        await lock.with(async () => {
+        await lock.with(() => {
           const prices = ec.getBestPrices(ec.orderBookL2[BTCUSD]);
           log.debug({ prices });
           const price = (prices.ask + prices.bid) / 2;
@@ -76,49 +78,81 @@ const main = async () => {
           const lot = Math.round(size * LOT * LEVERAGE);
           ec.positionSizeMax = lot * ORDER_LENGTH_MAX;
           orderCnt = ec.openOrders.length;
+          if (preOrderStop) {
+            console.log("Next", { prices });
+            preOrderStop = false;
+            orderStop = true;
+            console.log("Wait 3.0 s", { prices });
+            setTimeout(() => {
+              orderStop = false;
+              orderCnt = 0;
+            }, 3_000);
+            return;
+          }
           if (
             (prices.ask === beforePrices.ask &&
               prices.bid === beforePrices.bid &&
               prices.spread === beforePrices.spread) ||
             orderStop ||
+            orderMaxStop ||
             orderCnt > ORDER_LENGTH_MAX
           ) {
             return;
           }
-          if (prices.spread > SPREAD_THRESHOLD_MIN) {
-            beforePrices = prices;
-            orderStop = true;
-            console.log("Wait 3 s", { prices });
+          if (prices.spread > SPREAD_THRESHOLD_MAX) {
+            console.log("SPREAD is over max:", { prices });
+            orderMaxStop = true;
+            console.log("Wait 30 s", { prices });
             setTimeout(() => {
-              orderStop = false;
-            }, 3_000);
+              orderMaxStop = false;
+            }, 30_000);
             return;
           }
           // if (
           //   Math.abs(prices.ask - beforePrices.ask) >
           //   Math.abs(prices.bid - beforePrices.bid)
           // ) {
+          console.log({ prices });
           // console.log("Bullish", { prices });
           if (ec.canCreateOrder("Buy")) {
             const price = _.round(prices.bid + ORDER_DELTA_PRICE, 1);
-            console.log("Buy:", { lot, price: price });
-            ec.createLimitBuyOrder(BTCUSD, lot, price, {
-              time_in_force: "PostOnly",
-            });
-            orderCnt++;
+            [...Array(ORDER_LENGTH_MAX / 2).keys()]
+              .map((x) => price - x * 0.5)
+              .concat(
+                [...Array(ORDER_LENGTH_MAX / 2).keys()].map(
+                  (x) => price + x * 0.5
+                )
+              )
+              .forEach((x) => {
+                console.log("Buy:", { lot, price: x });
+                ec.createLimitBuyOrder(BTCUSD, lot, x, {
+                  time_in_force: "PostOnly",
+                });
+                orderCnt++;
+              });
           }
           // } else {
           // console.log("Bearrish", { prices });
           if (ec.canCreateOrder("Sell")) {
             const price = _.round(prices.ask - ORDER_DELTA_PRICE, 1);
-            console.log("Sell:", { lot, price: price });
-            ec.createLimitSellOrder(BTCUSD, lot, price, {
-              time_in_force: "PostOnly",
-            });
-            orderCnt++;
+            [...Array(ORDER_LENGTH_MAX / 2).keys()]
+              .map((x) => price - x * 0.5)
+              .concat(
+                [...Array(ORDER_LENGTH_MAX / 2).keys()].map(
+                  (x) => price + x * 0.5
+                )
+              )
+              .forEach((x) => {
+                console.log("Sell:", { lot, price: x });
+                ec.createLimitSellOrder(BTCUSD, lot, x, {
+                  time_in_force: "PostOnly",
+                });
+                orderCnt++;
+              });
           }
           // }
           beforePrices = prices;
+          preOrderStop = true;
         });
       }
     });
@@ -171,7 +205,7 @@ const main = async () => {
       BTCUSD,
       TAKE_PROFIT,
       STOP_LOSS,
-      CLOSE_DELTA_PRICE,
+      CLOSE_DELTA_PRICE
     );
     ec.ws.send(JSON.stringify({ op: "subscribe", args: ["order"] }));
   } catch (e) {
