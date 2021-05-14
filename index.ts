@@ -7,8 +7,8 @@ import { delay } from "https://deno.land/std/async/mod.ts";
 const BTCUSD = "BTC/USD";
 const CHANNEL = "#bybit-test";
 const FETCH_BALANCE_INTERVAL = 60_000;
-const CANCEL_INTERVAL = 10_000;
-const CLOSE_POSITION_INTERVAL = 10_000;
+const CANCEL_INTERVAL = 30_000;
+const CLOSE_POSITION_INTERVAL = 15_000;
 const LEVERAGE = 10;
 const CLOSE_DELTA_PRICE = 50;
 const LOT = 0.01;
@@ -16,10 +16,10 @@ const TAKE_PROFIT = 200;
 const TAKE_PROFIT_CLOSE = 100;
 const STOP_LOSS = 500;
 const SPREAD_THRESHOLD_MIN = 1.0;
-const SPREAD_THRESHOLD_MAX = 50;
-const CANCEL_ORDER_DIFF = 2_000;
+const SPREAD_THRESHOLD_MAX = 5;
+const CANCEL_ORDER_DIFF = 60_000;
 const ORDER_DELTA_PRICE = 0.0;
-const ORDER_LENGTH_MAX = 2;
+const ORDER_LENGTH_MAX = 10;
 
 const apiKey = Deno.env.get("CCXT_API_KEY") ?? "";
 const secret = Deno.env.get("CCXT_API_SECRET") ?? "";
@@ -116,10 +116,10 @@ const main = async () => {
           // console.log("Bullish", { prices });
           if (ec.canCreateOrder("Buy")) {
             const price = _.round(prices.bid + ORDER_DELTA_PRICE, 1);
-            [...Array(ORDER_LENGTH_MAX / 2).keys()]
+            [...Array(ORDER_LENGTH_MAX / ORDER_LENGTH_MAX).keys()]
               .map((x) => price - x * 0.5)
               .concat(
-                [...Array(ORDER_LENGTH_MAX / 2).keys()].map(
+                [...Array(ORDER_LENGTH_MAX / ORDER_LENGTH_MAX).keys()].map(
                   (x) => price + x * 0.5
                 )
               )
@@ -135,10 +135,10 @@ const main = async () => {
           // console.log("Bearrish", { prices });
           if (ec.canCreateOrder("Sell")) {
             const price = _.round(prices.ask - ORDER_DELTA_PRICE, 1);
-            [...Array(ORDER_LENGTH_MAX / 2).keys()]
+            [...Array(ORDER_LENGTH_MAX / ORDER_LENGTH_MAX).keys()]
               .map((x) => price - x * 0.5)
               .concat(
-                [...Array(ORDER_LENGTH_MAX / 2).keys()].map(
+                [...Array(ORDER_LENGTH_MAX / ORDER_LENGTH_MAX).keys()].map(
                   (x) => price + x * 0.5
                 )
               )
@@ -193,7 +193,7 @@ const main = async () => {
           setTimeout(async () => {
             await ec.cancelOrder(order.order_id, BTCUSD);
             orderCnt--;
-          }, 1_000);
+          }, CANCEL_ORDER_DIFF);
         }
       }
     });

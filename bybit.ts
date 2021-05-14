@@ -97,7 +97,7 @@ export class Bybit extends Exchange {
     const res = await this.ec.v2PrivateGetPositionList({
       symbol: id,
     });
-    this.position = JSON.parse(res).result[0].data;
+    this.position = JSON.parse(res).result;
     return this.position;
   }
 
@@ -193,7 +193,7 @@ export class Bybit extends Exchange {
           const ask = this.getBestPrices(this.orderBookL2[symbol]).ask;
           const price = Math.round(minPrice > ask ? minPrice : ask);
 
-          const fixedOrders = this.fixedOrders.filter(
+          const isFixed = this.fixedOrders.some(
             (x) =>
               x?.symbol === symbol &&
               x?.side === "sell" &&
@@ -201,7 +201,7 @@ export class Bybit extends Exchange {
               x?.amount === size
           );
 
-          if (fixedOrders.length > 0) {
+          if (isFixed) {
             console.log("[Position] Already ordered:", {
               side: "sell",
               price,
@@ -238,7 +238,7 @@ export class Bybit extends Exchange {
           const bid = this.getBestPrices(this.orderBookL2[symbol]).bid;
           const price = Math.round(minPrice < bid ? minPrice : bid);
 
-          const fixedOrders = this.fixedOrders.filter(
+          const isFixed = this.fixedOrders.some(
             (x) =>
               x?.symbol === symbol &&
               x?.side === "buy" &&
@@ -246,7 +246,7 @@ export class Bybit extends Exchange {
               x?.amount === size
           );
 
-          if (fixedOrders.length > 0) {
+          if (isFixed) {
             console.log("[Position] Already ordered:", {
               side: "buy",
               price,
@@ -432,7 +432,7 @@ export class Bybit extends Exchange {
           return;
         }
 
-        const fixedOrders = this.fixedOrders.filter(
+        const isFixed = this.fixedOrders.some(
           (x) =>
             x?.symbol === symbol &&
             x?.side === "sell" &&
@@ -440,7 +440,7 @@ export class Bybit extends Exchange {
             x?.amount === size
         );
 
-        if (fixedOrders.length > 0) {
+        if (isFixed) {
           return;
         }
         this.fixedOrders.forEach(
@@ -481,7 +481,7 @@ export class Bybit extends Exchange {
           return;
         }
 
-        const fixedOrders = this.fixedOrders.filter(
+        const isFixed = this.fixedOrders.some(
           (x) =>
             x.symbol === symbol &&
             x.side === "buy" &&
@@ -489,7 +489,7 @@ export class Bybit extends Exchange {
             x.amount === size
         );
 
-        if (fixedOrders.length > 0) {
+        if (isFixed) {
           return;
         }
         this.fixedOrders.forEach(
