@@ -44,8 +44,13 @@ export class Bybit extends Exchange {
   public buyStop = false;
   public sellStop = false;
 
-  constructor(apiKey: string, secret: string, testnet: boolean = false) {
-    super(apiKey, secret);
+  constructor(
+    apiKey: string,
+    secret: string,
+    testnet: boolean = false,
+    maxOrderCount: number
+  ) {
+    super(apiKey, secret, maxOrderCount);
     this.ec = new ccxt.bybit({ apiKey, secret, enableRateLimit: true });
 
     if (testnet) {
@@ -248,20 +253,10 @@ export class Bybit extends Exchange {
             size,
             price,
           });
-          this.fixedOrders.push(
-            await this.createLimitSellOrder(symbol, size, price, {
-              time_in_force: "PostOnly",
-            })
-            // await this.v2PrivatePostOrderCreate({
-            //   symbol: id,
-            //   side: "Sell",
-            //   order_type: "Limit",
-            //   qty: size,
-            //   price,
-            //   time_in_force: "PostOnly",
-            //   reduce_only: true,
-            // })
-          );
+          const order = await this.createLimitSellOrder(symbol, size, price, {
+            time_in_force: "PostOnly",
+          });
+          if (order) this.fixedOrders.push(order);
         } else {
           const minPrice = entry_price - delta;
           const bid = this.getBestPrices(this.orderBookL2[symbol]).bid;
@@ -306,20 +301,10 @@ export class Bybit extends Exchange {
             size,
             price,
           });
-          this.fixedOrders.push(
-            await this.createLimitBuyOrder(symbol, size, price, {
-              time_in_force: "PostOnly",
-            })
-            // await this.v2PrivatePostOrderCreate({
-            //   symbol: id,
-            //   side: "Buy",
-            //   order_type: "Limit",
-            //   qty: size,
-            //   price,
-            //   time_in_force: "PostOnly",
-            //   reduce_only: true,
-            // })
-          );
+          const order = await this.createLimitBuyOrder(symbol, size, price, {
+            time_in_force: "PostOnly",
+          });
+          if (order) this.fixedOrders.push(order);
         }
 
         {
@@ -498,29 +483,17 @@ export class Bybit extends Exchange {
             x?.amount === size
         );
 
-        if (isFixed) {
-          return;
-        }
+        if (isFixed) return;
         this.fixedOrders.forEach(
           async (x) => await this.cancelOrder(x?.id, symbol)
         );
         this.fixedOrders = [];
 
         console.log("[closePositionInterval] Sell:", { size, price });
-        this.fixedOrders.push(
-          await this.createLimitSellOrder(symbol, size, price, {
-            time_in_force: "PostOnly",
-          })
-          // await this.v2PrivatePostOrderCreate({
-          //   symbol: id,
-          //   side: "Sell",
-          //   order_type: "Limit",
-          //   qty: size,
-          //   price,
-          //   time_in_force: "PostOnly",
-          //   reduce_only: true,
-          // })
-        );
+        const order = await this.createLimitSellOrder(symbol, size, price, {
+          time_in_force: "PostOnly",
+        });
+        if (order) this.fixedOrders.push(order);
       } else {
         const minPrice = entry_price - delta;
         const bid = this.getBestPrices(this.orderBookL2[symbol]).bid;
@@ -560,29 +533,17 @@ export class Bybit extends Exchange {
             x.amount === size
         );
 
-        if (isFixed) {
-          return;
-        }
+        if (isFixed) return;
         this.fixedOrders.forEach(
           async (x) => await this.cancelOrder(x.id, symbol)
         );
         this.fixedOrders = [];
 
         console.log("[closePositionInterval] Buy:", { size, price });
-        this.fixedOrders.push(
-          await this.createLimitBuyOrder(symbol, size, price, {
-            time_in_force: "PostOnly",
-          })
-          // await this.v2PrivatePostOrderCreate({
-          //   symbol: id,
-          //   side: "Buy",
-          //   order_type: "Limit",
-          //   qty: size,
-          //   price,
-          //   time_in_force: "PostOnly",
-          //   reduce_only: true,
-          // })
-        );
+        const order = await this.createLimitBuyOrder(symbol, size, price, {
+          time_in_force: "PostOnly",
+        });
+        if (order) this.fixedOrders.push(order);
       }
     }, interval);
   }

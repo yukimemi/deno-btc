@@ -32,12 +32,22 @@ export class Exchange {
   public openOrders: ccxt.Order[] = [];
   public fixedOrders: ccxt.Order[] = [];
 
-  constructor(_apiKey: string, _secret: string) {}
+  constructor(_apiKey: string, _secret: string, public maxOrderCount: number) {}
+
+  isCreateOrder(): boolean {
+    if (this.openOrders.length > this.maxOrderCount) {
+      console.log("order count over maxOrderCount !", {
+        openOrderCnt: this.openOrders.length,
+      });
+      return false;
+    }
+    return true;
+  }
 
   async initWebsocket(
     url: string,
     apiKey: string,
-    secret: string
+    secret: string,
   ): Promise<void> {
     const expires = Date.now() + 1000;
     const te = new TextEncoder();
@@ -45,7 +55,8 @@ export class Exchange {
     const data = te.encode(`GET/realtime${expires}`);
     const signature = encodeToString(hmac("sha256", key, data));
 
-    const params = `api_key=${apiKey}&expires=${expires}&signature=${signature}`;
+    const params =
+      `api_key=${apiKey}&expires=${expires}&signature=${signature}`;
     const wsUrl = `${url}?${params}`;
     console.log(`connect: [${wsUrl}]`);
     this.ws = new WebSocket(wsUrl);
@@ -172,7 +183,7 @@ export class Exchange {
   */
   async fetchTicker(
     symbol: string,
-    params?: ccxt.Params
+    params?: ccxt.Params,
   ): Promise<ccxt.Ticker> {
     return await this.ec.fetchTicker(symbol, params);
   }
@@ -183,7 +194,7 @@ export class Exchange {
     if (slackChannel !== undefined) {
       await postSlack(
         slackChannel,
-        JSON.stringify({ [symbol]: balance[symbol] })
+        JSON.stringify({ [symbol]: balance[symbol] }),
       );
     }
   }
@@ -191,7 +202,7 @@ export class Exchange {
   logBalanceInterval(
     symbol: string,
     interval: number,
-    slackChannel?: string
+    slackChannel?: string,
   ): number {
     return setInterval(async () => {
       await this.logBalance(symbol, slackChannel);
@@ -200,13 +211,13 @@ export class Exchange {
 
   async fetchTickers(
     symbol?: string[],
-    params?: ccxt.Params
+    params?: ccxt.Params,
   ): Promise<ccxt.Dictionary<ccxt.Ticker>> {
     return await this.ec.fetchTickers(symbol, params);
   }
 
   async fetchPrices(
-    symbol: string
+    symbol: string,
   ): Promise<{ bid: number; ask: number; spread: number }> {
     const orderbook = await this.ec.fetchOrderBook(symbol);
     const bid = orderbook.bids[0][0];
@@ -221,14 +232,14 @@ export class Exchange {
     timeframe?: string,
     since?: number,
     limit?: number,
-    params?: ccxt.Params
+    params?: ccxt.Params,
   ): Promise<ccxt.OHLCV[]> {
     const ohlcv = await this.ec.fetchOHLCV(
       symbol,
       timeframe,
       since,
       limit,
-      params
+      params,
     );
 
     this.ohlcv = {
@@ -246,7 +257,7 @@ export class Exchange {
     symbol?: string,
     since?: number,
     limit?: number,
-    params?: ccxt.Params
+    params?: ccxt.Params,
   ): Promise<ccxt.Order[]> {
     this.orders = await this.ec.fetchOrders(symbol, since, limit, params);
     return this.orders;
@@ -256,13 +267,13 @@ export class Exchange {
     symbol?: string,
     since?: number,
     limit?: number,
-    params?: ccxt.Params
+    params?: ccxt.Params,
   ): Promise<ccxt.Order[]> {
     this.openOrders = await this.ec.fetchOpenOrders(
       symbol,
       since,
       limit,
-      params
+      params,
     );
     return this.openOrders;
   }
@@ -277,16 +288,17 @@ export class Exchange {
     side: "buy" | "sell",
     amount: number,
     price?: number,
-    params?: ccxt.Params
-  ): Promise<ccxt.Order> {
+    params?: ccxt.Params,
+  ): Promise<ccxt.Order | void> {
     try {
+      if (!this.isCreateOrder()) return;
       const order = await this.ec.createOrder(
         symbol,
         type,
         side,
         amount,
         price,
-        params
+        params,
       );
       this.orders.push(order);
       return order;
@@ -300,15 +312,16 @@ export class Exchange {
     side: "buy" | "sell",
     amount: number,
     price: number,
-    params?: ccxt.Params
-  ): Promise<ccxt.Order> {
+    params?: ccxt.Params,
+  ): Promise<ccxt.Order | void> {
     try {
+      if (!this.isCreateOrder()) return;
       const order = await this.ec.createLimitOrder(
         symbol,
         side,
         amount,
         price,
-        params
+        params,
       );
       this.orders.push(order);
       return order;
@@ -321,14 +334,15 @@ export class Exchange {
     symbol: string,
     amount: number,
     price: number,
-    params?: ccxt.Params
-  ): Promise<ccxt.Order> {
+    params?: ccxt.Params,
+  ): Promise<ccxt.Order | void> {
     try {
+      if (!this.isCreateOrder()) return;
       const order = await this.ec.createLimitBuyOrder(
         symbol,
         amount,
         price,
-        params
+        params,
       );
       this.orders.push(order);
       return order;
@@ -342,14 +356,15 @@ export class Exchange {
     symbol: string,
     amount: number,
     price: number,
-    params?: ccxt.Params
-  ): Promise<ccxt.Order> {
+    params?: ccxt.Params,
+  ): Promise<ccxt.Order | void> {
     try {
+      if (!this.isCreateOrder()) return;
       const order = await this.ec.createLimitSellOrder(
         symbol,
         amount,
         price,
-        params
+        params,
       );
       this.orders.push(order);
       return order;
@@ -362,7 +377,7 @@ export class Exchange {
   async cancelOrder(
     id: string,
     symbol?: string,
-    params?: ccxt.Params
+    params?: ccxt.Params,
   ): Promise<ccxt.Order | void> {
     try {
       const order = await this.ec.cancelOrder(id, symbol, params);
@@ -380,8 +395,8 @@ export class Exchange {
 
   async cancelAllOrders(
     symbol: string,
-    params?: ccxt.Params
-  ): Promise<ccxt.Order> {
+    params?: ccxt.Params,
+  ): Promise<ccxt.Order[]> {
     const orders = await this.ec.cancelAllOrders(symbol, params);
     this.orders = [];
     return orders;
@@ -391,7 +406,7 @@ export class Exchange {
     symbol: string,
     interval: number,
     diff: number,
-    params?: ccxt.Params
+    params?: ccxt.Params,
   ): number {
     return setInterval(async () => {
       const now = new Date();

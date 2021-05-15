@@ -17,10 +17,11 @@ const TAKE_PROFIT_CLOSE = 100;
 const STOP_LOSS = 500;
 const SPREAD_THRESHOLD_MIN = 1.0;
 const SPREAD_THRESHOLD_MAX = 5;
-const CANCEL_ORDER_DIFF = 60_000;
+const CANCEL_ORDER_DIFF = 5_000;
 const ORDER_DELTA_PRICE = 0.0;
 const ORDER_LENGTH_MAX = 10;
 const ORDER_STOP_PROFIT = -10;
+const ORDER_COUNT_MAX = 6;
 
 const apiKey = Deno.env.get("CCXT_API_KEY") ?? "";
 const secret = Deno.env.get("CCXT_API_SECRET") ?? "";
@@ -31,23 +32,23 @@ const wsSecret = Deno.env.get("BYBIT_WS_API_SECRET") ?? "";
 const lock = new Lock();
 
 const main = async () => {
-  const ec = new Bybit(apiKey, secret, testnet);
+  const ec = new Bybit(apiKey, secret, testnet, ORDER_COUNT_MAX);
   const logBalanceTimer = ec.logBalanceInterval(
     "BTC",
     FETCH_BALANCE_INTERVAL,
-    CHANNEL
+    CHANNEL,
   );
   const cancelTimer = ec.cancelOrderInterval(
     BTCUSD,
     CANCEL_INTERVAL,
-    CANCEL_ORDER_DIFF
+    CANCEL_ORDER_DIFF,
   );
   const closePositionTimer = ec.closePositionInterval(
     BTCUSD,
     CLOSE_POSITION_INTERVAL,
     CLOSE_DELTA_PRICE,
     TAKE_PROFIT_CLOSE,
-    ORDER_STOP_PROFIT
+    ORDER_STOP_PROFIT,
   );
 
   let timer = 0;
@@ -122,8 +123,8 @@ const main = async () => {
               .map((x) => price - x * 0.5)
               .concat(
                 [...Array(ORDER_LENGTH_MAX / ORDER_LENGTH_MAX).keys()].map(
-                  (x) => price + x * 0.5
-                )
+                  (x) => price + x * 0.5,
+                ),
               )
               .forEach((x) => {
                 console.log("Buy:", { lot, price: x });
@@ -141,8 +142,8 @@ const main = async () => {
               .map((x) => price - x * 0.5)
               .concat(
                 [...Array(ORDER_LENGTH_MAX / ORDER_LENGTH_MAX).keys()].map(
-                  (x) => price + x * 0.5
-                )
+                  (x) => price + x * 0.5,
+                ),
               )
               .forEach((x) => {
                 console.log("Sell:", { lot, price: x });
@@ -208,7 +209,7 @@ const main = async () => {
       TAKE_PROFIT,
       STOP_LOSS,
       CLOSE_DELTA_PRICE,
-      ORDER_STOP_PROFIT
+      ORDER_STOP_PROFIT,
     );
     ec.ws.send(JSON.stringify({ op: "subscribe", args: ["order"] }));
   } catch (e) {

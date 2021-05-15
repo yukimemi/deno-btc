@@ -16,7 +16,7 @@ const XRPUSD = "XRP/USD";
 const RETRY_CNT = 5;
 let retry = 0;
 
-const ec = new Bybit(apiKey, secret, testnet);
+const ec = new Bybit(apiKey, secret, testnet, 10);
 
 Deno.test("loadMarkets #1", async () => {
   const markets = await ec.loadMarkets();
@@ -59,7 +59,6 @@ Deno.test("fetchOrders #1", async () => {
     time_in_force: "PostOnly",
   });
   const orders = await ec.fetchOrders(BTCUSD);
-  console.log({ orders });
   assert(orders.length >= 2);
 });
 
@@ -72,7 +71,6 @@ Deno.test("fetchOpenOrders #1", async () => {
     time_in_force: "PostOnly",
   });
   const orders = await ec.fetchOpenOrders(BTCUSD);
-  console.log({ orders });
   assert(orders.length >= 2);
 });
 
@@ -82,7 +80,6 @@ Deno.test("fetchPositions #1", async () => {
   const positions = await ec.fetchPositions([BTCUSD], {
     type: "inverse",
   });
-  console.log({ positions });
 });
 
 Deno.test("fetchOHLCV #1", async () => {
@@ -180,7 +177,6 @@ Deno.test({
     await delay(1000);
 
     const bestPrices = ec.getBestPrices(ec.orderBookL2[BTCUSD]);
-    console.log({ bestPrices });
   },
   sanitizeOps: false,
   sanitizeResources: false,
@@ -215,9 +211,11 @@ Deno.test("cancelOrder #1", async () => {
   const buyOrder = await ec.createLimitBuyOrder(BTCUSD, 1, prices.bid, {
     time_in_force: "PostOnly",
   });
-  const cancelOrder = await ec.cancelOrder(buyOrder.id, BTCUSD);
-  log.debug({ cancelOrder });
-  assert(!_.includes(ec.orders, cancelOrder));
+  if (buyOrder) {
+    const cancelOrder = await ec.cancelOrder(buyOrder.id, BTCUSD);
+    log.debug({ cancelOrder });
+    assert(!_.includes(ec.orders, cancelOrder));
+  }
 });
 
 Deno.test("cancelAllOrders #1", async () => {
@@ -229,7 +227,6 @@ Deno.test("cancelAllOrders #1", async () => {
     time_in_force: "PostOnly",
   });
   const cancelOrders = await ec.cancelAllOrders(BTCUSD);
-  console.log({ cancelOrders });
   assertEquals(ec.orders.length, 0);
-  assertEquals(cancelOrders, 2);
+  assertEquals(cancelOrders.length, 2);
 });
