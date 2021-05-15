@@ -1,14 +1,14 @@
 import * as log from "https://deno.land/std/log/mod.ts";
 import _ from "https://cdn.skypack.dev/lodash";
-import { Lock } from "https://deno.land/x/async@v1.1/mod.ts";
+import { Lock } from "https://deno.land/x/async/mod.ts";
 import { Bybit } from "./bybit.ts";
 import { delay } from "https://deno.land/std/async/mod.ts";
 
 const BTCUSD = "BTC/USD";
 const CHANNEL = "#bybit-test";
 const FETCH_BALANCE_INTERVAL = 60_000;
-const CANCEL_INTERVAL = 30_000;
-const CLOSE_POSITION_INTERVAL = 15_000;
+const CANCEL_INTERVAL = 10_000;
+const CLOSE_POSITION_INTERVAL = 20_000;
 const LEVERAGE = 10;
 const CLOSE_DELTA_PRICE = 50;
 const LOT = 0.01;
@@ -20,6 +20,7 @@ const SPREAD_THRESHOLD_MAX = 5;
 const CANCEL_ORDER_DIFF = 60_000;
 const ORDER_DELTA_PRICE = 0.0;
 const ORDER_LENGTH_MAX = 10;
+const ORDER_STOP_PROFIT = -10;
 
 const apiKey = Deno.env.get("CCXT_API_KEY") ?? "";
 const secret = Deno.env.get("CCXT_API_SECRET") ?? "";
@@ -45,7 +46,8 @@ const main = async () => {
     BTCUSD,
     CLOSE_POSITION_INTERVAL,
     CLOSE_DELTA_PRICE,
-    TAKE_PROFIT_CLOSE
+    TAKE_PROFIT_CLOSE,
+    ORDER_STOP_PROFIT
   );
 
   let timer = 0;
@@ -205,7 +207,8 @@ const main = async () => {
       BTCUSD,
       TAKE_PROFIT,
       STOP_LOSS,
-      CLOSE_DELTA_PRICE
+      CLOSE_DELTA_PRICE,
+      ORDER_STOP_PROFIT
     );
     ec.ws.send(JSON.stringify({ op: "subscribe", args: ["order"] }));
   } catch (e) {

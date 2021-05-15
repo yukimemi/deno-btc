@@ -41,6 +41,8 @@ export class Bybit extends Exchange {
     stop_loss: "",
   };
   public positionSizeMax = 0;
+  public buyStop = false;
+  public sellStop = false;
 
   constructor(apiKey: string, secret: string, testnet: boolean = false) {
     super(apiKey, secret);
@@ -113,6 +115,14 @@ export class Bybit extends Exchange {
       });
       return false;
     }
+    if (side === "Buy" && this.buyStop) {
+      console.log("Buy stop !!!");
+      return false;
+    }
+    if (side === "Sell" && this.sellStop) {
+      console.log("Sell stop !!!");
+      return false;
+    }
     return true;
   }
 
@@ -144,7 +154,8 @@ export class Bybit extends Exchange {
     symbol: string,
     profit: number,
     loss: number,
-    delta: number
+    delta: number,
+    orderStopProfit: number
   ) {
     await this.ec.loadMarkets();
     const id = this.ec.market(symbol).id;
@@ -163,7 +174,12 @@ export class Bybit extends Exchange {
         log.debug("Receive message: ", { message });
         // Set take profit and stop loss.
         this.position = message.data[0];
-        if (this.position.side === "None") return;
+        if (this.position.side === "None") {
+          this.fixedOrders = [];
+          this.buyStop = false;
+          this.sellStop = false;
+          return;
+        }
         const side = this.position.side;
         const size = Number(this.position.size);
         // deno-lint-ignore camelcase
@@ -192,6 +208,19 @@ export class Bybit extends Exchange {
           const minPrice = entry_price + delta;
           const ask = this.getBestPrices(this.orderBookL2[symbol]).ask;
           const price = Math.round(minPrice > ask ? minPrice : ask);
+          const profit = Math.round(ask - entry_price);
+
+          this.sellStop = false;
+          if (profit < orderStopProfit) {
+            this.buyStop = true;
+            this.openOrders
+              .filter((x) => x.side === "buy")
+              .forEach((x) => {
+                this.cancelOrder(x?.id, symbol);
+              });
+          } else {
+            this.buyStop = false;
+          }
 
           const isFixed = this.fixedOrders.some(
             (x) =>
@@ -206,7 +235,7 @@ export class Bybit extends Exchange {
               side: "sell",
               price,
               size,
-              profit: Math.round(ask - entry_price),
+              profit,
             });
             return;
           }
@@ -237,6 +266,19 @@ export class Bybit extends Exchange {
           const minPrice = entry_price - delta;
           const bid = this.getBestPrices(this.orderBookL2[symbol]).bid;
           const price = Math.round(minPrice < bid ? minPrice : bid);
+          const profit = Math.round(entry_price - bid);
+
+          this.buyStop = false;
+          if (profit < orderStopProfit) {
+            this.sellStop = true;
+            this.openOrders
+              .filter((x) => x.side === "sell")
+              .forEach((x) => {
+                this.cancelOrder(x?.id, symbol);
+              });
+          } else {
+            this.sellStop = false;
+          }
 
           const isFixed = this.fixedOrders.some(
             (x) =>
@@ -251,7 +293,7 @@ export class Bybit extends Exchange {
               side: "buy",
               price,
               size,
-              profit: Math.round(entry_price - bid),
+              profit,
             });
             return;
           }
@@ -399,6 +441,7 @@ export class Bybit extends Exchange {
     interval: number,
     delta: number,
     closeDelta: number,
+    orderStopProfit: number,
     params?: ccxt.Params
   ): number {
     return setInterval(async () => {
@@ -406,6 +449,8 @@ export class Bybit extends Exchange {
       this.position = await this.fetchPositions([symbol], params);
       if (this.position.side === "None") {
         this.fixedOrders = [];
+        this.buyStop = false;
+        this.sellStop = false;
         return;
       }
       const side = this.position.side;
@@ -418,12 +463,25 @@ export class Bybit extends Exchange {
         const minPrice = entry_price + delta;
         const ask = this.getBestPrices(this.orderBookL2[symbol]).ask;
         const price = Math.round(minPrice > ask ? minPrice : ask);
+        const profit = Math.round(ask - entry_price);
+
+        this.sellStop = false;
+        if (profit < orderStopProfit) {
+          this.buyStop = true;
+          this.openOrders
+            .filter((x) => x.side === "buy")
+            .forEach((x) => {
+              this.cancelOrder(x?.id, symbol);
+            });
+        } else {
+          this.buyStop = false;
+        }
 
         console.log("[closePositionInterval]", {
           side: "sell",
           price,
           size,
-          profit: Math.round(ask - entry_price),
+          profit,
         });
 
         if (ask - entry_price > closeDelta) {
@@ -467,12 +525,25 @@ export class Bybit extends Exchange {
         const minPrice = entry_price - delta;
         const bid = this.getBestPrices(this.orderBookL2[symbol]).bid;
         const price = Math.round(minPrice < bid ? minPrice : bid);
+        const profit = Math.round(entry_price - bid);
+
+        this.buyStop = false;
+        if (profit < orderStopProfit) {
+          this.sellStop = true;
+          this.openOrders
+            .filter((x) => x.side === "sell")
+            .forEach((x) => {
+              this.cancelOrder(x?.id, symbol);
+            });
+        } else {
+          this.sellStop = false;
+        }
 
         console.log("[closePositionInterval]", {
           side: "buy",
           price,
           size,
-          profit: Math.round(entry_price - bid),
+          profit,
         });
 
         if (entry_price - bid > closeDelta) {
