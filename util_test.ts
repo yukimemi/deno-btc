@@ -1,5 +1,5 @@
 import { assert } from "https://deno.land/std/testing/asserts.ts";
-import { postSlack } from "./mod.ts";
+import { postSlack } from "./util.ts";
 
 const SLACK_CHANNEL = "#bybit-test";
 

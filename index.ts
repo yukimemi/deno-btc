@@ -1,8 +1,5 @@
-import * as log from "https://deno.land/std/log/mod.ts";
-import _ from "https://cdn.skypack.dev/lodash";
-import { Lock } from "https://deno.land/x/async/mod.ts";
+import { _, delay, Lock, log } from "./deps.ts";
 import { Bybit } from "./bybit.ts";
-import { delay } from "https://deno.land/std/async/mod.ts";
 
 const BTCUSD = "BTC/USD";
 const CHANNEL = "#bybit-test";

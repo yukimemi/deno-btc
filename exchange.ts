@@ -1,10 +1,5 @@
-import _ from "https://cdn.skypack.dev/lodash";
-import * as ccxt from "https://esm.sh/ccxt";
-import * as log from "https://deno.land/std/log/mod.ts";
-import { delay } from "https://deno.land/std/async/mod.ts";
-import { hmac } from "https://deno.land/x/crypto/hmac.ts";
-import { encodeToString } from "https://deno.land/x/std/encoding/hex.ts";
-import { postSlack } from "./mod.ts";
+import { _, ccxt, delay, encodeToString, hmac, log } from "./deps.ts";
+import { postSlack } from "./util.ts";
 
 export type Trend = "Bullish" | "Bearlish" | "None";
 

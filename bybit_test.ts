@@ -1,8 +1,6 @@
-import _ from "https://cdn.skypack.dev/lodash";
-import * as log from "https://deno.land/std/log/mod.ts";
-import { Bybit } from "./bybit.ts";
+import { _, delay, log } from "./deps.ts";
+import { Bybit } from "./mod.ts";
 import { assert, assertEquals } from "https://deno.land/std/testing/asserts.ts";
-import { delay } from "https://deno.land/std/async/mod.ts";
 
 const apiKey = Deno.env.get("CCXT_API_KEY") ?? "";
 const secret = Deno.env.get("CCXT_API_SECRET") ?? "";
@@ -32,22 +30,22 @@ Deno.test("fetchBalance #1", async () => {
 Deno.test("fetchTicker #1", async () => {
   const ticker = await ec.fetchTicker(BTCUSD);
   log.debug({ ticker });
-  assert(ticker.ask > 50000);
-  assert(ticker.bid > 50000);
+  assert(ticker.ask > 30000);
+  assert(ticker.bid > 30000);
 });
 
 Deno.test("fetchTicker #2", async () => {
   const ticker = await ec.fetchTicker(XRPUSD);
-  assert(ticker.ask > 1);
-  assert(ticker.bid > 1);
+  assert(ticker.ask > 0.5);
+  assert(ticker.bid > 0.5);
 });
 
 Deno.test("fetchTickers #1", async () => {
   const tickers = await ec.fetchTickers([BTCUSD, XRPUSD]);
-  assert(tickers[BTCUSD].ask > 50000);
-  assert(tickers[BTCUSD].bid > 50000);
-  assert(tickers[XRPUSD].ask > 1);
-  assert(tickers[XRPUSD].bid > 1);
+  assert(tickers[BTCUSD].ask > 30000);
+  assert(tickers[BTCUSD].bid > 30000);
+  assert(tickers[XRPUSD].ask > 0.5);
+  assert(tickers[XRPUSD].bid > 0.5);
 });
 
 Deno.test("fetchOrders #1", async () => {
@@ -101,9 +99,9 @@ Deno.test("fetchOHLCV #2", async () => {
 Deno.test("fetchPrices #1", async () => {
   const prices = await ec.fetchPrices(BTCUSD);
   log.debug({ prices });
-  assert(prices.ask > 50000);
-  assert(prices.bid > 50000);
-  assert(prices.spread < 50);
+  assert(prices.ask > 30000);
+  assert(prices.bid > 30000);
+  assert(prices.spread < 100);
 });
 
 Deno.test({
@@ -219,6 +217,7 @@ Deno.test("cancelOrder #1", async () => {
 });
 
 Deno.test("cancelAllOrders #1", async () => {
+  await ec.cancelAllOrders(BTCUSD);
   const prices = await ec.fetchPrices(BTCUSD);
   const _buyOrder = await ec.createLimitBuyOrder(BTCUSD, 1, prices.bid, {
     time_in_force: "PostOnly",

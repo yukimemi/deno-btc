@@ -1,9 +1,5 @@
-import * as ccxt from "https://esm.sh/ccxt";
-import * as log from "https://deno.land/std/log/mod.ts";
-import _ from "https://cdn.skypack.dev/lodash";
+import { _, ccxt, colors, delay, log } from "./deps.ts";
 import { Exchange } from "./exchange.ts";
-import { delay } from "https://deno.land/std/async/mod.ts";
-import { red, bold, underline } from "https://deno.land/std/fmt/colors.ts";
 
 export type Order = {
   id: number;
@@ -48,7 +44,7 @@ export class Bybit extends Exchange {
     apiKey: string,
     secret: string,
     testnet: boolean = false,
-    maxOrderCount: number
+    maxOrderCount: number,
   ) {
     super(apiKey, secret, maxOrderCount);
     this.ec = new ccxt.bybit({ apiKey, secret, enableRateLimit: true });
@@ -132,7 +128,7 @@ export class Bybit extends Exchange {
   }
 
   async v2PrivatePostOrderCreate(
-    params: Record<string, number | boolean | string>
+    params: Record<string, number | boolean | string>,
   ): Promise<any> {
     try {
       return await this.ec.v2PrivatePostOrderCreate(params);
@@ -151,7 +147,7 @@ export class Bybit extends Exchange {
       }
     });
     this.ws.send(
-      JSON.stringify({ op: "subscribe", args: [`orderBookL2_25.${id}`] })
+      JSON.stringify({ op: "subscribe", args: [`orderBookL2_25.${id}`] }),
     );
   }
 
@@ -160,7 +156,7 @@ export class Bybit extends Exchange {
     profit: number,
     loss: number,
     delta: number,
-    orderStopProfit: number
+    orderStopProfit: number,
   ) {
     await this.ec.loadMarkets();
     const id = this.ec.market(symbol).id;
@@ -232,7 +228,7 @@ export class Bybit extends Exchange {
               x?.symbol === symbol &&
               x?.side === "sell" &&
               x?.price === price &&
-              x?.amount === size
+              x?.amount === size,
           );
 
           if (isFixed) {
@@ -245,14 +241,17 @@ export class Bybit extends Exchange {
             return;
           }
           this.fixedOrders.forEach(
-            async (x) => await this.cancelOrder(x.id, symbol)
+            async (x) => await this.cancelOrder(x.id, symbol),
           );
           this.fixedOrders = [];
 
-          console.log(underline(bold(red("[Position] Sell:"))), {
-            size,
-            price,
-          });
+          console.log(
+            colors.underline(colors.bold(colors.red("[Position] Sell:"))),
+            {
+              size,
+              price,
+            },
+          );
           const order = await this.createLimitSellOrder(symbol, size, price, {
             time_in_force: "PostOnly",
           });
@@ -280,7 +279,7 @@ export class Bybit extends Exchange {
               x?.symbol === symbol &&
               x?.side === "buy" &&
               x?.price === price &&
-              x?.amount === size
+              x?.amount === size,
           );
 
           if (isFixed) {
@@ -293,14 +292,17 @@ export class Bybit extends Exchange {
             return;
           }
           this.fixedOrders.forEach(
-            async (x) => await this.cancelOrder(x?.id, symbol)
+            async (x) => await this.cancelOrder(x?.id, symbol),
           );
           this.fixedOrders = [];
 
-          console.log(underline(bold(red("[Position] Buy:"))), {
-            size,
-            price,
-          });
+          console.log(
+            colors.underline(colors.bold(colors.red("[Position] Buy:"))),
+            {
+              size,
+              price,
+            },
+          );
           const order = await this.createLimitBuyOrder(symbol, size, price, {
             time_in_force: "PostOnly",
           });
@@ -312,13 +314,13 @@ export class Bybit extends Exchange {
           const take_profit = Math.round(
             this.position.side === "Buy"
               ? entry_price + profit
-              : entry_price - profit
+              : entry_price - profit,
           );
           // deno-lint-ignore camelcase
           const stop_loss = Math.round(
             this.position.side === "Buy"
               ? entry_price - loss
-              : entry_price + loss
+              : entry_price + loss,
           );
           if (
             Number(this.position.take_profit) !== take_profit ||
@@ -346,17 +348,17 @@ export class Bybit extends Exchange {
     symbol: string,
     newData:
       | {
-          type: "snapshot";
-          data: Order[];
-        }
+        type: "snapshot";
+        data: Order[];
+      }
       | {
-          type: "delta";
-          data: {
-            insert: Order[];
-            update: Order[];
-            delete: Order[];
-          };
-        }
+        type: "delta";
+        data: {
+          insert: Order[];
+          update: Order[];
+          delete: Order[];
+        };
+      },
   ) {
     // Snapshot.
     if (newData.type === "snapshot") {
@@ -380,7 +382,7 @@ export class Bybit extends Exchange {
       _.forEach(newData.data.update, (x: Order) => {
         const itemToUpdate = _.find(
           this.orderBookL2[symbol],
-          (d: Order) => d.id === x.id
+          (d: Order) => d.id === x.id,
         );
         const updateData = { ...itemToUpdate, ...x };
         this.orderBookL2[symbol][
@@ -393,12 +395,12 @@ export class Bybit extends Exchange {
       _.forEach(newData.data.delete, (x: Order) => {
         const itemToDelete = _.find(
           this.orderBookL2[symbol],
-          (d: Order) => d.id === x.id
+          (d: Order) => d.id === x.id,
         );
         if (itemToDelete) {
           this.orderBookL2[symbol] = _.without(
             this.orderBookL2[symbol],
-            itemToDelete
+            itemToDelete,
           );
           log.debug("Delete item:", newData.data.delete);
         }
@@ -427,7 +429,7 @@ export class Bybit extends Exchange {
     delta: number,
     closeDelta: number,
     orderStopProfit: number,
-    params?: ccxt.Params
+    params?: ccxt.Params,
   ): number {
     return setInterval(async () => {
       const id = this.ec.market(symbol).id;
@@ -480,12 +482,12 @@ export class Bybit extends Exchange {
             x?.symbol === symbol &&
             x?.side === "sell" &&
             x?.price === price &&
-            x?.amount === size
+            x?.amount === size,
         );
 
         if (isFixed) return;
         this.fixedOrders.forEach(
-          async (x) => await this.cancelOrder(x?.id, symbol)
+          async (x) => await this.cancelOrder(x?.id, symbol),
         );
         this.fixedOrders = [];
 
@@ -530,12 +532,12 @@ export class Bybit extends Exchange {
             x.symbol === symbol &&
             x.side === "buy" &&
             x.price === price &&
-            x.amount === size
+            x.amount === size,
         );
 
         if (isFixed) return;
         this.fixedOrders.forEach(
-          async (x) => await this.cancelOrder(x.id, symbol)
+          async (x) => await this.cancelOrder(x.id, symbol),
         );
         this.fixedOrders = [];
 
@@ -549,7 +551,7 @@ export class Bybit extends Exchange {
   }
 
   getBestPrices(
-    orderBookL2: Order[]
+    orderBookL2: Order[],
   ): { ask: number; bid: number; spread: number } {
     const ask = _(orderBookL2)
       .filter((x: Order) => x.side === "Sell")
