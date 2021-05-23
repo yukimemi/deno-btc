@@ -28,6 +28,20 @@ export type OrderBookL2 = {
 };
 
 export class Bybit extends Exchange {
+  static timeframes = {
+    "1m": "1",
+    "3m": "3",
+    "5m": "5",
+    "15m": "15",
+    "30m": "30",
+    "1h": "60",
+    "2h": "120",
+    "4h": "240",
+    "6h": "360",
+    "1d": "D",
+    "1w": "W",
+    "1M": "M",
+  };
   public orderBookL2: OrderBookL2 = {};
   public position = {
     side: "",
@@ -137,9 +151,15 @@ export class Bybit extends Exchange {
     }
   }
 
-  async subscribeKlineV2(symbol: string, timeframe: string) {
+  async subscribeKlineV2(
+    symbol: string,
+    timeframe: string,
+  ) {
     await this.ec.loadMarkets();
     const id = this.ec.market(symbol).id;
+
+    const timeframeBybit =
+      Bybit.timeframes[timeframe as keyof typeof Bybit.timeframes];
 
     if (!(symbol in this.ohlcvs)) {
       this.ohlcvs = {
@@ -156,7 +176,7 @@ export class Bybit extends Exchange {
     }
 
     this.onMessages.unshift((message) => {
-      if (message.topic === `klineV2.${timeframe}.${id}`) {
+      if (message.topic === `klineV2.${timeframeBybit}.${id}`) {
         log.debug("Receive message: ", { message });
         message?.data?.forEach((x: {
           open: number;
@@ -174,7 +194,10 @@ export class Bybit extends Exchange {
       }
     });
     this.ws.send(
-      JSON.stringify({ op: "subscribe", args: [`klineV2.${timeframe}.${id}`] }),
+      JSON.stringify({
+        op: "subscribe",
+        args: [`klineV2.${timeframeBybit}.${id}`],
+      }),
     );
   }
 

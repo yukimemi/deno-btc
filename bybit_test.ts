@@ -139,7 +139,7 @@ Deno.test({
           close.orderBookL2_25_BTCUSD = true;
         }
       } else if (mes.topic === "klineV2.1.BTCUSD") {
-        if (ec.ohlcvs[BTCUSD]["1"].length > 0) {
+        if (ec.ohlcvs[BTCUSD]["1m"].length > 0) {
           close.klineV2 = true;
         }
         log.debug({ ohlcvs: ec.ohlcvs });
@@ -168,7 +168,7 @@ Deno.test({
     };
     timer = ec.startHeartBeat(pingMes, 100);
     await ec.subscribeOrderBookL2_25(BTCUSD);
-    await ec.subscribeKlineV2(BTCUSD, "1");
+    await ec.subscribeKlineV2(BTCUSD, "1m");
 
     // Wait until CLOSE.
     while (true) {
