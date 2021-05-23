@@ -1,4 +1,4 @@
-import { _, ccxt, colors, delay, log } from "./deps.ts";
+import { _, ccxt, log } from "./deps.ts";
 import { Exchange } from "./exchange.ts";
 
 export type Order = {
@@ -137,6 +137,30 @@ export class Bybit extends Exchange {
     }
   }
 
+  async subscribeKlineV2(symbol: string, timeframe: string) {
+    await this.ec.loadMarkets();
+    const id = this.ec.market(symbol).id;
+
+    this.ohlcvs = {
+      ...this.ohlcvs,
+      [symbol]: {
+        [timeframe]: [],
+      },
+    };
+
+    this.onMessages.unshift((message) => {
+      if (message.topic === `klineV2.${timeframe}.${id}`) {
+        log.debug("Receive message: ", { message });
+        if (message?.data[0]?.confirm) {
+          this.deltaKlineV2(symbol, timeframe, message.data[0]);
+        }
+      }
+    });
+    this.ws.send(
+      JSON.stringify({ op: "subscribe", args: [`klineV2.${timeframe}.${id}`] }),
+    );
+  }
+
   async subscribeOrderBookL2_25(symbol: string) {
     await this.ec.loadMarkets();
     const id = this.ec.market(symbol).id;
@@ -153,195 +177,33 @@ export class Bybit extends Exchange {
 
   async subscribePosition(
     symbol: string,
-    profit: number,
-    loss: number,
-    delta: number,
-    orderStopProfit: number,
   ) {
     await this.ec.loadMarkets();
-    const id = this.ec.market(symbol).id;
-    let before = {
-      side: "",
-      size: 0,
-      // deno-lint-ignore camelcase
-      entry_price: 0,
-      // deno-lint-ignore camelcase
-      take_profit: 0,
-      // deno-lint-ignore camelcase
-      stop_loss: 0,
-    };
-    this.onMessages.push(async (message) => {
+    this.onMessages.push((message) => {
       if (message.topic === "position") {
         log.debug("Receive message: ", { message });
-        // Set take profit and stop loss.
         this.position = message.data[0];
-        if (this.position.side === "None") {
-          this.fixedOrders = [];
-          this.buyStop = false;
-          this.sellStop = false;
-          return;
-        }
-        const side = this.position.side;
-        const size = Number(this.position.size);
-        // deno-lint-ignore camelcase
-        const entry_price = Number(this.position.entry_price);
-        // deno-lint-ignore camelcase
-        const take_profit = Number(this.position.take_profit);
-        // deno-lint-ignore camelcase
-        const stop_loss = Number(this.position.stop_loss);
-        if (
-          before.side === side &&
-          before.size === size &&
-          before.entry_price === entry_price &&
-          before.take_profit === take_profit &&
-          before.stop_loss === stop_loss
-        ) {
-          return;
-        }
-        before = {
-          side,
-          size,
-          entry_price,
-          take_profit,
-          stop_loss,
-        };
-        if (side === "Buy") {
-          const minPrice = entry_price + delta;
-          const ask = this.getBestPrices(this.orderBookL2[symbol]).ask;
-          const price = Math.round(minPrice > ask ? minPrice : ask);
-          const profit = Math.round(ask - entry_price);
-
-          this.sellStop = false;
-          if (profit < orderStopProfit) {
-            this.buyStop = true;
-            this.openOrders
-              .filter((x) => x.side === "buy")
-              .forEach((x) => {
-                this.cancelOrder(x?.id, symbol);
-              });
-          } else {
-            this.buyStop = false;
-          }
-
-          const isFixed = this.fixedOrders.some(
-            (x) =>
-              x?.symbol === symbol &&
-              x?.side === "sell" &&
-              x?.price === price &&
-              x?.amount === size,
-          );
-
-          if (isFixed) {
-            console.log("[Position] Already ordered:", {
-              side: "sell",
-              price,
-              size,
-              profit,
-            });
-            return;
-          }
-          this.fixedOrders.forEach(
-            async (x) => await this.cancelOrder(x.id, symbol),
-          );
-          this.fixedOrders = [];
-
-          console.log(
-            colors.underline(colors.bold(colors.red("[Position] Sell:"))),
-            {
-              size,
-              price,
-            },
-          );
-          const order = await this.createLimitSellOrder(symbol, size, price, {
-            time_in_force: "PostOnly",
-          });
-          if (order) this.fixedOrders.push(order);
-        } else {
-          const minPrice = entry_price - delta;
-          const bid = this.getBestPrices(this.orderBookL2[symbol]).bid;
-          const price = Math.round(minPrice < bid ? minPrice : bid);
-          const profit = Math.round(entry_price - bid);
-
-          this.buyStop = false;
-          if (profit < orderStopProfit) {
-            this.sellStop = true;
-            this.openOrders
-              .filter((x) => x.side === "sell")
-              .forEach((x) => {
-                this.cancelOrder(x?.id, symbol);
-              });
-          } else {
-            this.sellStop = false;
-          }
-
-          const isFixed = this.fixedOrders.some(
-            (x) =>
-              x?.symbol === symbol &&
-              x?.side === "buy" &&
-              x?.price === price &&
-              x?.amount === size,
-          );
-
-          if (isFixed) {
-            console.log("[Position] Already ordered:", {
-              side: "buy",
-              price,
-              size,
-              profit,
-            });
-            return;
-          }
-          this.fixedOrders.forEach(
-            async (x) => await this.cancelOrder(x?.id, symbol),
-          );
-          this.fixedOrders = [];
-
-          console.log(
-            colors.underline(colors.bold(colors.red("[Position] Buy:"))),
-            {
-              size,
-              price,
-            },
-          );
-          const order = await this.createLimitBuyOrder(symbol, size, price, {
-            time_in_force: "PostOnly",
-          });
-          if (order) this.fixedOrders.push(order);
-        }
-
-        {
-          // deno-lint-ignore camelcase
-          const take_profit = Math.round(
-            this.position.side === "Buy"
-              ? entry_price + profit
-              : entry_price - profit,
-          );
-          // deno-lint-ignore camelcase
-          const stop_loss = Math.round(
-            this.position.side === "Buy"
-              ? entry_price - loss
-              : entry_price + loss,
-          );
-          if (
-            Number(this.position.take_profit) !== take_profit ||
-            Number(this.position.stop_loss) !== stop_loss
-          ) {
-            console.log("Set TraidingStop:", { take_profit, stop_loss });
-            try {
-              await this.ec.v2PrivatePostPositionTradingStop({
-                symbol: id,
-                take_profit,
-                stop_loss,
-              });
-              await delay(3_000);
-            } catch (e) {
-              console.error({ e });
-            }
-          }
-        }
       }
     });
     this.ws.send(JSON.stringify({ op: "subscribe", args: ["position"] }));
+  }
+
+  deltaKlineV2(symbol: string, timeframe: string, newData: {
+    open: number;
+    close: number;
+    high: number;
+    low: number;
+    volume: number;
+    timestamp: number;
+  }) {
+    this.ohlcvs[symbol][timeframe].push([
+      newData.timestamp,
+      newData.open,
+      newData.high,
+      newData.low,
+      newData.close,
+      newData.volume,
+    ]);
   }
 
   deltaOrderBookL2(
@@ -432,7 +294,6 @@ export class Bybit extends Exchange {
     params?: ccxt.Params,
   ): number {
     return setInterval(async () => {
-      const id = this.ec.market(symbol).id;
       this.position = await this.fetchPositions([symbol], params);
       if (this.position.side === "None") {
         this.fixedOrders = [];

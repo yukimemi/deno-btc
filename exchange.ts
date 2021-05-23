@@ -16,13 +16,11 @@ export class Exchange {
   // deno-lint-ignore no-explicit-any
   public onMessages: ((data: any) => any)[] = [];
   public trend!: Trend;
-  public ohlcv: {
-    open: number[];
-    high: number[];
-    low: number[];
-    close: number[];
-    value: number[];
-  } = { open: [], high: [], low: [], close: [], value: [] };
+  public ohlcvs: {
+    [symbol: string]: {
+      [timeframe: string]: ccxt.OHLCV[];
+    };
+  } = {};
   public orders: ccxt.Order[] = [];
   public openOrders: ccxt.Order[] = [];
   public fixedOrders: ccxt.Order[] = [];
@@ -224,7 +222,7 @@ export class Exchange {
 
   async fetchOHLCV(
     symbol: string,
-    timeframe?: string,
+    timeframe: string,
     since?: number,
     limit?: number,
     params?: ccxt.Params,
@@ -237,14 +235,21 @@ export class Exchange {
       params,
     );
 
-    this.ohlcv = {
-      open: ohlcv.map((x) => x[1]),
-      high: ohlcv.map((x) => x[2]),
-      low: ohlcv.map((x) => x[3]),
-      close: ohlcv.map((x) => x[4]),
-      value: ohlcv.map((x) => x[5]),
-    };
+    if (!(symbol in this.ohlcvs)) {
+      this.ohlcvs = {
+        ...this.ohlcvs,
+        [symbol]: {},
+      };
+    }
 
+    if (!(timeframe in this.ohlcvs[symbol])) {
+      this.ohlcvs[symbol] = {
+        ...this.ohlcvs[symbol],
+        [timeframe]: [],
+      };
+    }
+
+    this.ohlcvs[symbol][timeframe] = ohlcv;
     return ohlcv;
   }
 

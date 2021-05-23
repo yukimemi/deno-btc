@@ -61,6 +61,7 @@ Deno.test("fetchOrders #1", async () => {
 });
 
 Deno.test("fetchOpenOrders #1", async () => {
+  await ec.cancelAllOrders(BTCUSD);
   const prices = await ec.fetchPrices(BTCUSD);
   const _buyOrder = await ec.createLimitBuyOrder(BTCUSD, 1, prices.bid, {
     time_in_force: "PostOnly",
@@ -137,6 +138,11 @@ Deno.test({
         if (orderBookL2Cnt === 5) {
           close.orderBookL2_25_BTCUSD = true;
         }
+      } else if (mes.topic === "klineV2.1.BTCUSD") {
+        if (ec.ohlcvs[BTCUSD]["1"].length > 0) {
+          close.klineV2 = true;
+        }
+        log.debug({ ohlcvs: ec.ohlcvs });
       } else if (mes.ret_msg === "pong") {
         pingCnt++;
         if (pingCnt === 5) {
@@ -158,9 +164,11 @@ Deno.test({
       ping: false,
       // deno-lint-ignore camelcase
       orderBookL2_25_BTCUSD: false,
+      klineV2: false,
     };
     timer = ec.startHeartBeat(pingMes, 100);
     await ec.subscribeOrderBookL2_25(BTCUSD);
+    await ec.subscribeKlineV2(BTCUSD, "1");
 
     // Wait until CLOSE.
     while (true) {
@@ -175,6 +183,7 @@ Deno.test({
     await delay(1000);
 
     const bestPrices = ec.getBestPrices(ec.orderBookL2[BTCUSD]);
+    log.debug({ bestPrices });
   },
   sanitizeOps: false,
   sanitizeResources: false,
