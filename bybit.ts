@@ -178,19 +178,9 @@ export class Bybit extends Exchange {
     this.onMessages.unshift((message) => {
       if (message.topic === `klineV2.${timeframeBybit}.${id}`) {
         log.debug("Receive message: ", { message });
-        message?.data?.forEach((x: {
-          open: number;
-          close: number;
-          high: number;
-          low: number;
-          volume: number;
-          timestamp: number;
-          confirm: boolean;
-        }) => {
-          if (x?.confirm) {
-            this.deltaKlineV2(symbol, timeframe, x);
-          }
-        });
+        if (message?.data[0]?.confirm) {
+          this.deltaKlineV2(symbol, timeframe, message.data[0]);
+        }
       }
     });
     this.ws.send(
