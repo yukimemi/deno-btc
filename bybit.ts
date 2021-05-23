@@ -237,8 +237,9 @@ export class Bybit extends Exchange {
     timestamp: number;
     confirm: boolean;
   }) {
+    const timestamp = Math.round(newData.timestamp / 1000);
     this.ohlcvs[symbol][timeframe].push([
-      newData.timestamp,
+      timestamp,
       newData.open,
       newData.high,
       newData.low,
