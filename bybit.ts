@@ -151,9 +151,19 @@ export class Bybit extends Exchange {
     this.onMessages.unshift((message) => {
       if (message.topic === `klineV2.${timeframe}.${id}`) {
         log.debug("Receive message: ", { message });
-        if (message?.data[0]?.confirm) {
-          this.deltaKlineV2(symbol, timeframe, message.data[0]);
-        }
+        message?.data?.forEach((x: {
+          open: number;
+          close: number;
+          high: number;
+          low: number;
+          volume: number;
+          timestamp: number;
+          confirm: boolean;
+        }) => {
+          if (x?.confirm) {
+            this.deltaKlineV2(symbol, timeframe, x);
+          }
+        });
       }
     });
     this.ws.send(
@@ -195,6 +205,7 @@ export class Bybit extends Exchange {
     low: number;
     volume: number;
     timestamp: number;
+    confirm: boolean;
   }) {
     this.ohlcvs[symbol][timeframe].push([
       newData.timestamp,
