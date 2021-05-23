@@ -141,12 +141,19 @@ export class Bybit extends Exchange {
     await this.ec.loadMarkets();
     const id = this.ec.market(symbol).id;
 
-    this.ohlcvs = {
-      ...this.ohlcvs,
-      [symbol]: {
+    if (!(symbol in this.ohlcvs)) {
+      this.ohlcvs = {
+        ...this.ohlcvs,
+        [symbol]: {},
+      };
+    }
+
+    if (!(timeframe in this.ohlcvs[symbol])) {
+      this.ohlcvs[symbol] = {
+        ...this.ohlcvs[symbol],
         [timeframe]: [],
-      },
-    };
+      };
+    }
 
     this.onMessages.unshift((message) => {
       if (message.topic === `klineV2.${timeframe}.${id}`) {
