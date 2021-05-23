@@ -235,7 +235,7 @@ export class Bybit extends Exchange {
     symbol: string,
   ) {
     await this.ec.loadMarkets();
-    this.onMessages.push((message) => {
+    this.onMessages.unshift((message) => {
       if (message.topic === "position") {
         log.debug("Receive message: ", { message });
         this.position = message.data[0];
