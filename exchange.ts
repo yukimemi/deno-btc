@@ -4,6 +4,20 @@ import { postSlack } from "./util.ts";
 export type Trend = "Bullish" | "Bearlish" | "None";
 
 export class Exchange {
+  static timeframeSeconds = {
+    "1m": 1000 * 60 * 1,
+    "3m": 1000 * 60 * 3,
+    "5m": 1000 * 60 * 5,
+    "15m": 1000 * 60 * 15,
+    "30m": 1000 * 60 * 30,
+    "1h": 1000 * 60 * 60 * 1,
+    "2h": 1000 * 60 * 60 * 2,
+    "4h": 1000 * 60 * 60 * 4,
+    "6h": 1000 * 60 * 60 * 6,
+    "1d": 1000 * 60 * 60 * 24,
+    "1w": 1000 * 60 * 60 * 24 * 7,
+    "1M": 1000 * 60 * 60 * 24 * 27,
+  };
   public ec!: ccxt.Exchange;
   public balances!: ccxt.Balances;
   public ws!: WebSocket;
