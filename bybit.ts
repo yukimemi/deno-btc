@@ -154,6 +154,7 @@ export class Bybit extends Exchange {
   async subscribeKlineV2(
     symbol: string,
     timeframe: string,
+    limit: number,
   ) {
     await this.ec.loadMarkets();
     const id = this.ec.market(symbol).id;
@@ -204,7 +205,7 @@ export class Bybit extends Exchange {
               }
             }
             x.timestamp = timestamp;
-            this.deltaKlineV2(symbol, timeframe, x);
+            this.deltaKlineV2(symbol, timeframe, x, limit);
           }
         });
       }
@@ -252,7 +253,7 @@ export class Bybit extends Exchange {
     volume: number;
     timestamp: number;
     confirm: boolean;
-  }) {
+  }, limit: number) {
     this.ohlcvs[symbol][timeframe].push([
       newData.timestamp,
       newData.open,
@@ -261,6 +262,10 @@ export class Bybit extends Exchange {
       newData.close,
       newData.volume,
     ]);
+    this.ohlcvs[symbol][timeframe] = _.takeRight(
+      this.ohlcvs[symbol][timeframe],
+      limit,
+    );
   }
 
   deltaOrderBookL2(
