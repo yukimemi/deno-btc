@@ -168,7 +168,7 @@ Deno.test({
     };
     timer = ec.startHeartBeat(pingMes, 100);
     await ec.subscribeOrderBookL2_25(BTCUSD);
-    await ec.subscribeKlineV2(BTCUSD, "1m");
+    await ec.subscribeKlineV2(BTCUSD, "1m", 10);
 
     // Wait until CLOSE.
     while (true) {

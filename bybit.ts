@@ -29,6 +29,7 @@ export type OrderBookL2 = {
 
 export class Bybit extends Exchange {
   static timeframes = {
+    "all": "1",
     "1m": "1",
     "3m": "3",
     "5m": "5",
@@ -188,6 +189,10 @@ export class Bybit extends Exchange {
           timestamp: number;
           confirm: boolean;
         }) => {
+          if (timeframe === "all") {
+            this.deltaKlineV2(symbol, timeframe, x, limit);
+            return;
+          }
           if (x?.confirm) {
             const timestamp = Math.round(x.timestamp / 1000);
             const ohlcvLen = this.ohlcvs[symbol][timeframe].length;
