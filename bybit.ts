@@ -253,6 +253,7 @@ export class Bybit extends Exchange {
 
   async subscribeTrade(
     symbol: string,
+    limit: number,
   ) {
     await this.ec.loadMarkets();
     const id = this.ec.market(symbol).id;
@@ -275,7 +276,7 @@ export class Bybit extends Exchange {
     this.onMessages.unshift((message) => {
       if (message.topic === `trade.${id}`) {
         log.debug("Receive message: ", { message });
-        this.trade2Orders(symbol, message.data);
+        this.trade2Orders(symbol, message.data, limit);
       }
     });
     this.ws.send(JSON.stringify({ op: "subscribe", args: [`trade.${id}`] }));
@@ -291,7 +292,7 @@ export class Bybit extends Exchange {
     "tick_direction": string;
     "trade_id": string;
     "cross_seq": number;
-  }[]) {
+  }[], limit: number) {
     const timeframe = "1s";
     log.debug({ newData });
     newData?.forEach((data) => {
@@ -320,6 +321,10 @@ export class Bybit extends Exchange {
         ]);
       }
     });
+    this.ohlcvs[symbol][timeframe] = _.takeRight(
+      this.ohlcvs[symbol][timeframe],
+      limit,
+    );
   }
 
   deltaKlineV2(symbol: string, timeframe: string, newData: {

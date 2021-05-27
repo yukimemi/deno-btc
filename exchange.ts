@@ -5,6 +5,7 @@ export type Trend = "Bullish" | "Bearlish" | "None";
 
 export class Exchange {
   static timeframeSeconds = {
+    "1s": 1000 * 1,
     "1m": 1000 * 60 * 1,
     "3m": 1000 * 60 * 3,
     "5m": 1000 * 60 * 5,
