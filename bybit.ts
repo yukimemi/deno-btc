@@ -30,6 +30,7 @@ export type OrderBookL2 = {
 export class Bybit extends Exchange {
   static timeframes = {
     "all": "1",
+    "1s": "1",
     "1m": "1",
     "3m": "3",
     "5m": "5",
@@ -248,6 +249,77 @@ export class Bybit extends Exchange {
       }
     });
     this.ws.send(JSON.stringify({ op: "subscribe", args: ["position"] }));
+  }
+
+  async subscribeTrade(
+    symbol: string,
+  ) {
+    await this.ec.loadMarkets();
+    const id = this.ec.market(symbol).id;
+    const timeframe = "1s";
+
+    if (!(symbol in this.ohlcvs)) {
+      this.ohlcvs = {
+        ...this.ohlcvs,
+        [symbol]: {},
+      };
+    }
+
+    if (!(timeframe in this.ohlcvs[symbol])) {
+      this.ohlcvs[symbol] = {
+        ...this.ohlcvs[symbol],
+        [timeframe]: [],
+      };
+    }
+
+    this.onMessages.unshift((message) => {
+      if (message.topic === `trade.${id}`) {
+        log.debug("Receive message: ", { message });
+        this.trade2Orders(symbol, message.data);
+      }
+    });
+    this.ws.send(JSON.stringify({ op: "subscribe", args: [`trade.${id}`] }));
+  }
+
+  trade2Orders(symbol: string, newData: {
+    "timestamp": string;
+    "trade_time_ms": number;
+    "symbol": string;
+    "side": string;
+    "size": number;
+    "price": number;
+    "tick_direction": string;
+    "trade_id": string;
+    "cross_seq": number;
+  }[]) {
+    const timeframe = "1s";
+    log.debug({ newData });
+    newData?.forEach((data) => {
+      const time = _.floor(data.trade_time_ms, -3);
+      const len = this.ohlcvs[symbol][timeframe].length;
+      const last = _.last(this.ohlcvs[symbol][timeframe]);
+      if (last !== undefined && time === last[0]) {
+        this.ohlcvs[symbol][timeframe][len - 1][2] = _.max([
+          last[2],
+          data.price,
+        ]);
+        this.ohlcvs[symbol][timeframe][len - 1][3] = _.min([
+          last[3],
+          data.price,
+        ]);
+        this.ohlcvs[symbol][timeframe][len - 1][4] = data.price;
+        this.ohlcvs[symbol][timeframe][len - 1][5] += data.size;
+      } else {
+        this.ohlcvs[symbol][timeframe].push([
+          time,
+          data.price,
+          data.price,
+          data.price,
+          data.price,
+          data.size,
+        ]);
+      }
+    });
   }
 
   deltaKlineV2(symbol: string, timeframe: string, newData: {

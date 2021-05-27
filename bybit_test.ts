@@ -111,6 +111,7 @@ Deno.test({
     let timer = 0;
     let pingCnt = 0;
     let orderBookL2Cnt = 0;
+    let tradeCnt = 0;
 
     ec.onOpens.push((event) => {
       log.debug("OPEN websocket: ", { event });
@@ -137,6 +138,12 @@ Deno.test({
 
         if (orderBookL2Cnt === 5) {
           close.orderBookL2_25_BTCUSD = true;
+        }
+      } else if (mes.topic === "trade.BTCUSD") {
+        tradeCnt++;
+
+        if (tradeCnt === 20) {
+          close.trade_BTCUSD = true;
         }
       } else if (mes.topic === "klineV2.1.BTCUSD") {
         if (ec.ohlcvs[BTCUSD]["1m"].length > 0) {
@@ -165,10 +172,13 @@ Deno.test({
       // deno-lint-ignore camelcase
       orderBookL2_25_BTCUSD: false,
       klineV2: false,
+      // deno-lint-ignore camelcase
+      trade_BTCUSD: false,
     };
     timer = ec.startHeartBeat(pingMes, 100);
     await ec.subscribeOrderBookL2_25(BTCUSD);
     await ec.subscribeKlineV2(BTCUSD, "1m", 10);
+    await ec.subscribeTrade(BTCUSD);
 
     // Wait until CLOSE.
     while (true) {
@@ -180,6 +190,9 @@ Deno.test({
     }
     log.debug(ec.orderBookL2);
     assert(ec.orderBookL2[BTCUSD].length > 0);
+    log.debug(ec.ohlcvs);
+    const times = ec.ohlcvs[BTCUSD]["1s"].map((x) => [new Date(x[0])]);
+    log.debug({ times });
     await delay(1000);
 
     const bestPrices = ec.getBestPrices(ec.orderBookL2[BTCUSD]);
