@@ -439,9 +439,7 @@ export class Bybit extends Exchange {
     return setInterval(async () => {
       try {
         this.position = await this.fetchPositions([symbol], params);
-      } catch (e) {
-        console.log(e);
-      }
+      } catch {}
       if (this.position.side === "None") {
         return;
       }
