@@ -432,125 +432,45 @@ export class Bybit extends Exchange {
   closePositionInterval(
     symbol: string,
     interval: number,
-    delta: number,
+    takeProfitClose: number,
     closeDelta: number,
-    orderStopProfit: number,
     params?: ccxt.Params,
   ): number {
     return setInterval(async () => {
-      this.position = await this.fetchPositions([symbol], params);
+      try {
+        this.position = await this.fetchPositions([symbol], params);
+      } catch (e) {
+        console.log(e);
+      }
       if (this.position.side === "None") {
-        this.fixedOrders = [];
-        this.buyStop = false;
-        this.sellStop = false;
         return;
       }
       const side = this.position.side;
       const size = Number(this.position.size);
       // deno-lint-ignore camelcase
       const entry_price = Number(this.position.entry_price);
+      let profit = 0;
+      let price = 0;
 
-      log.debug({ openOrders: this.openOrders });
       if (side === "Buy") {
-        const minPrice = entry_price + delta;
-        const ask = this.getBestPrices(this.orderBookL2[symbol]).ask;
-        const price = Math.round(minPrice > ask ? minPrice : ask);
-        const profit = Math.round(ask - entry_price);
-
-        this.sellStop = false;
-        if (profit < orderStopProfit) {
-          this.buyStop = true;
-          this.openOrders
-            .filter((x) => x.side === "buy")
-            .forEach((x) => {
-              this.cancelOrder(x?.id, symbol);
-            });
-        } else {
-          this.buyStop = false;
-        }
-
-        console.log("[closePositionInterval]", {
-          side: "sell",
-          price,
-          size,
-          profit,
-        });
-
-        if (ask - entry_price > closeDelta) {
-          // Close position
-          await this.setTraidingStop(symbol, 5);
-          return;
-        }
-
-        const isFixed = this.fixedOrders.some(
-          (x) =>
-            x?.symbol === symbol &&
-            x?.side === "sell" &&
-            x?.price === price &&
-            x?.amount === size,
-        );
-
-        if (isFixed) return;
-        this.fixedOrders.forEach(
-          async (x) => await this.cancelOrder(x?.id, symbol),
-        );
-        this.fixedOrders = [];
-
-        console.log("[closePositionInterval] Sell:", { size, price });
-        const order = await this.createLimitSellOrder(symbol, size, price, {
-          time_in_force: "PostOnly",
-        });
-        if (order) this.fixedOrders.push(order);
+        price = this.getBestPrices(this.orderBookL2[symbol]).ask;
+        profit = Math.round(price - entry_price);
       } else {
-        const minPrice = entry_price - delta;
-        const bid = this.getBestPrices(this.orderBookL2[symbol]).bid;
-        const price = Math.round(minPrice < bid ? minPrice : bid);
-        const profit = Math.round(entry_price - bid);
+        price = this.getBestPrices(this.orderBookL2[symbol]).bid;
+        profit = Math.round(entry_price - price);
+      }
 
-        this.buyStop = false;
-        if (profit < orderStopProfit) {
-          this.sellStop = true;
-          this.openOrders
-            .filter((x) => x.side === "sell")
-            .forEach((x) => {
-              this.cancelOrder(x?.id, symbol);
-            });
-        } else {
-          this.sellStop = false;
-        }
+      console.log("[closePositionInterval]", {
+        side,
+        price,
+        size,
+        profit,
+      });
 
-        console.log("[closePositionInterval]", {
-          side: "buy",
-          price,
-          size,
-          profit,
-        });
-
-        if (entry_price - bid > closeDelta) {
-          // Close position
-          await this.setTraidingStop(symbol, 5);
-          return;
-        }
-
-        const isFixed = this.fixedOrders.some(
-          (x) =>
-            x.symbol === symbol &&
-            x.side === "buy" &&
-            x.price === price &&
-            x.amount === size,
-        );
-
-        if (isFixed) return;
-        this.fixedOrders.forEach(
-          async (x) => await this.cancelOrder(x.id, symbol),
-        );
-        this.fixedOrders = [];
-
-        console.log("[closePositionInterval] Buy:", { size, price });
-        const order = await this.createLimitBuyOrder(symbol, size, price, {
-          time_in_force: "PostOnly",
-        });
-        if (order) this.fixedOrders.push(order);
+      if (profit > takeProfitClose) {
+        // Close position
+        await this.setTraidingStop(symbol, closeDelta);
+        return;
       }
     }, interval);
   }
