@@ -322,6 +322,29 @@ export class Exchange {
     }
   }
 
+  async createMarketOrder(
+    symbol: string,
+    side: "buy" | "sell",
+    amount: number,
+    price?: number,
+    params?: ccxt.Params,
+  ): Promise<ccxt.Order | void> {
+    try {
+      if (!this.isCreateOrder()) return;
+      const order = await this.ec.createMarketOrder(
+        symbol,
+        side,
+        amount,
+        price,
+        params,
+      );
+      this.orders.push(order);
+      return order;
+    } catch (e) {
+      throw e;
+    }
+  }
+
   async createLimitOrder(
     symbol: string,
     side: "buy" | "sell",
