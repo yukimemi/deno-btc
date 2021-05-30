@@ -51,6 +51,7 @@ export class Bybit extends Exchange {
     entry_price: "",
     take_profit: "",
     stop_loss: "",
+    trailing_stop: "",
   };
   public positionSizeMax = 0;
   public buyStop = false;
@@ -415,6 +416,10 @@ export class Bybit extends Exchange {
   }
 
   async setTraidingStop(symbol: string, trailingStop: number): Promise<any> {
+    if (Number(this.position.trailing_stop) === trailingStop) {
+      console.log("already set trailing_stop:", trailingStop);
+      return;
+    }
     console.log("[setTraidingStop] Set TraidingStop:", {
       trailingStop,
     });
