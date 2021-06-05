@@ -51,6 +51,7 @@ export class Bybit extends Exchange {
     entry_price: "",
     take_profit: "",
     stop_loss: "",
+    liq_price: "",
     trailing_stop: "",
   };
   public positionSizeMax = 0;
