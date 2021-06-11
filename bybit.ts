@@ -435,6 +435,25 @@ export class Bybit extends Exchange {
     }
   }
 
+  async setStopLoss(symbol: string, stopLoss: number): Promise<any> {
+    if (Number(this.position.stop_loss) === stopLoss) {
+      console.log("already set stop_loss:", stopLoss);
+      return;
+    }
+    console.log("[setStopLoss] Set StopLoss:", {
+      stopLoss,
+    });
+    try {
+      const id = this.ec.market(symbol).id;
+      return await this.ec.v2PrivatePostPositionTradingStop({
+        symbol: id,
+        stop_loss: stopLoss,
+      });
+    } catch (e) {
+      console.error({ e });
+    }
+  }
+
   closePositionInterval(
     symbol: string,
     interval: number,
