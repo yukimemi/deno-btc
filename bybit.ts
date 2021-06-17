@@ -118,7 +118,7 @@ export class Bybit extends Exchange {
     const res = await this.ec.v2PrivateGetPositionList({
       symbol: id,
     });
-    this.position = JSON.parse(res).result;
+    this.position = JSON.parse(res).result[0].data;
     return this.position;
   }
 
