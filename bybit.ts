@@ -69,6 +69,8 @@ export class Bybit extends Exchange {
 
     if (testnet) {
       this.ec.urls.api = this.ec.urls.test;
+    } else {
+      this.ec.urls.api = "https://api.bybitglobal.com";
     }
   }
 
